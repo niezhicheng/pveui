@@ -13,6 +13,13 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from apps.common.pagination import LargePageSizePagination
 from .models import Menu, Permission, Role, UserRole, Organization, UserOrganization
+import platform
+import os
+import time
+try:
+    import psutil  # type: ignore
+except Exception:  # pragma: no cover
+    psutil = None  # type: ignore
 
 User = get_user_model()
 from .serializers import (
@@ -593,3 +600,91 @@ class MenuTreeView(APIView):
         sort_tree(roots)
         return Response(roots)
 
+
+class SystemMetricsView(APIView):
+    """系统监控指标：CPU、内存、磁盘、启动时间等。"""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):  # noqa: D401
+        if psutil is None:
+            return Response({
+                "detail": "psutil 未安装，请先安装依赖：pip install psutil"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        try:
+            boot_ts = psutil.boot_time()
+            uptime = int(time.time() - boot_ts)
+
+            cpu = {
+                "count_logical": psutil.cpu_count(logical=True),
+                "count_physical": psutil.cpu_count(logical=False),
+                "percent": psutil.cpu_percent(interval=0.2),
+                "load_avg": os.getloadavg() if hasattr(os, 'getloadavg') else None,
+            }
+
+            vm = psutil.virtual_memory()
+            mem = {
+                "total": vm.total,
+                "available": vm.available,
+                "used": vm.used,
+                "free": vm.free,
+                "percent": vm.percent,
+            }
+
+            sm = psutil.swap_memory()
+            swap = {
+                "total": sm.total,
+                "used": sm.used,
+                "free": sm.free,
+                "percent": sm.percent,
+            }
+
+            disks = []
+            for part in psutil.disk_partitions(all=False):
+                try:
+                    du = psutil.disk_usage(part.mountpoint)
+                    disks.append({
+                        "device": part.device,
+                        "mountpoint": part.mountpoint,
+                        "fstype": part.fstype,
+                        "total": du.total,
+                        "used": du.used,
+                        "free": du.free,
+                        "percent": du.percent,
+                    })
+                except Exception:
+                    pass
+
+            net = {}
+            try:
+                ni = psutil.net_io_counters()
+                net = {
+                    "bytes_sent": ni.bytes_sent,
+                    "bytes_recv": ni.bytes_recv,
+                    "packets_sent": ni.packets_sent,
+                    "packets_recv": ni.packets_recv,
+                }
+            except Exception:
+                net = {}
+
+            data = {
+                "platform": {
+                    "system": platform.system(),
+                    "release": platform.release(),
+                    "version": platform.version(),
+                    "python": platform.python_version(),
+                    "machine": platform.machine(),
+                    "processor": platform.processor(),
+                },
+                "uptime_seconds": uptime,
+                "cpu": cpu,
+                "memory": mem,
+                "swap": swap,
+                "disks": disks,
+                "network": net,
+            }
+
+            return Response(data)
+        except Exception as e:
+            return Response({"detail": f"metrics 采集失败: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

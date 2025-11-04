@@ -27,7 +27,7 @@ from django.urls import path, re_path, include
 from django.conf import settings
 from django.views.static import serve
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    # path('admin/', admin.site.urls),
     path('api/rbac/', include('apps.rbac.urls')),
     path('api/curd/', include('apps.curdexample.urls')),
     path('api/common/', include('apps.common.urls')),

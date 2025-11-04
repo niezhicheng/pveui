@@ -39,6 +39,7 @@ from .views import (
     UserOrganizationsView,
     OrganizationTreeView,
     MenuTreeView,
+    SystemMetricsView,
 )
 
 # 可根据需要将 basename 显式指定，当前使用默认模型名推导
@@ -55,6 +56,7 @@ urlpatterns = [
     # 将特殊路由放在 router.urls 之前，避免路由冲突
     path('organizations/tree/', OrganizationTreeView.as_view()),
     path('menu-tree/', MenuTreeView.as_view()),
+    path('system/metrics/', SystemMetricsView.as_view()),
     path('auth/login/', LoginView.as_view()),
     path('auth/logout/', LogoutView.as_view()),
     path('auth/user-info/', UserInfoView.as_view()),
