@@ -11,6 +11,7 @@ const componentMap = {
   'system/permission/index': () => import('@/views/system/permission/index.vue'),
   'system/organization/index': () => import('@/views/system/organization/index.vue'),
   'system/codegen/index': () => import('@/views/system/codegen/index.vue'),
+  'system/book/index': () => import('@/views/system/book/index.vue'),
   'curdexample/index': () => import('@/views/curdexample/index.vue'),
   // 自动添加其他路径
 }
@@ -25,12 +26,12 @@ export function loadComponent(componentPath) {
   if (componentMap[componentPath]) {
     return componentMap[componentPath]()
   }
-  
+
   // 如果映射表中没有，尝试动态导入
-  const fullPath = componentPath.startsWith('@/') 
-    ? componentPath 
+  const fullPath = componentPath.startsWith('@/')
+    ? componentPath
     : `@/views/${componentPath}`
-  
+
   return import(/* @vite-ignore */ fullPath).catch((err) => {
     console.error('加载组件失败:', fullPath, err)
     // 返回默认菜单页面

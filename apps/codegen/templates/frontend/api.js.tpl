@@ -5,7 +5,7 @@ export function get${ModelName}List(params) {
 }
 
 export function get${ModelName}Detail(id) {
-  return request({ url: `/api/${AppLabel}/${model_name}/${'$'}{id}/`, method: 'get' })
+  return request({ url: `/api/${AppLabel}/${model_name}/` + id + '/', method: 'get' })
 }
 
 export function create${ModelName}(data) {
@@ -13,10 +13,10 @@ export function create${ModelName}(data) {
 }
 
 export function update${ModelName}(id, data) {
-  return request({ url: `/api/${AppLabel}/${model_name}/${'$'}{id}/`, method: 'put', data })
+  return request({ url: `/api/${AppLabel}/${model_name}/` + id + '/', method: 'put', data })
 }
 
 export function delete${ModelName}(id) {
-  return request({ url: `/api/${AppLabel}/${model_name}/${'$'}{id}/`, method: 'delete' })
+  return request({ url: `/api/${AppLabel}/${model_name}/` + id + '/', method: 'delete' })
 }
 

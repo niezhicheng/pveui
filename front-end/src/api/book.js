@@ -5,7 +5,7 @@ export function getBookList(params) {
 }
 
 export function getBookDetail(id) {
-  return request({ url: `/api/book/book/${'$'}{id}/`, method: 'get' })
+  return request({ url: `/api/book/book/` + id + '/', method: 'get' })
 }
 
 export function createBook(data) {
@@ -13,10 +13,10 @@ export function createBook(data) {
 }
 
 export function updateBook(id, data) {
-  return request({ url: `/api/book/book/${'$'}{id}/`, method: 'put', data })
+  return request({ url: `/api/book/book/` + id + '/', method: 'put', data })
 }
 
 export function deleteBook(id) {
-  return request({ url: `/api/book/book/${'$'}{id}/`, method: 'delete' })
+  return request({ url: `/api/book/book/` + id + '/', method: 'delete' })
 }
 

@@ -236,13 +236,20 @@ class GenerateFromSpecView(APIView):
                 # ensure router
                 if 'router = DefaultRouter()' not in text:
                     text += '\n\nrouter = DefaultRouter()\n'
-                # ensure register
+                # ensure register appears AFTER router init and BEFORE urlpatterns block
                 register_line = f"router.register(r'{str(model_name).lower()}', {model_name}ViewSet, basename='{str(model_name).lower()}')\n"
-                if register_line not in text:
-                    import_line = f'from .views import {model_name}ViewSet\n'
-                    if import_line not in text:
-                        text = import_line + text
+                import_line = f'from .views import {model_name}ViewSet\n'
+                if import_line not in text:
+                    text = import_line + text
+                # remove any duplicate existing register lines
+                if register_line in text:
+                    text = text.replace(register_line, '')
+                # insert before urlpatterns (or at end if not found)
+                url_pos = text.find('urlpatterns')
+                if url_pos == -1:
                     text += register_line
+                else:
+                    text = text[:url_pos] + register_line + text[url_pos:]
                 # normalize urlpatterns: remove stray empty list
                 text = re.sub(r"^urlpatterns\s*=\s*\[\s*\]\s*$", '', text, flags=re.M)
                 if 'urlpatterns' in text and 'include(router.urls)' in text:
@@ -288,6 +295,84 @@ class GenerateFromSpecView(APIView):
             write_file_safe(fe_base / 'views' / Path(*module_parts) / 'index.vue', load('frontend/view.vue.tpl').safe_substitute(ctx))
         except Exception as e:
             return Response({'detail': f'生成文件失败: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # 2.2) 创建菜单与 RBAC 权限，并授予超级管理员
+        try:
+            from apps.rbac.models import Permission, Role, Menu
+
+            # 创建/同步菜单（顶级菜单），component 使用前端模块路径
+            menu_title = model_name
+            menu_path = f"/{module_path}"
+            menu_component = module_path if module_path.endswith('/index') else f"{module_path}/index"
+            menu_defaults = {
+                "title": menu_title,
+                "component": menu_component,
+                "icon": "",
+                "order": 100,
+                "parent": None,
+                "is_hidden": False,
+            }
+            # 用 path 唯一识别菜单
+            menu_obj, _ = Menu.objects.get_or_create(path=menu_path, defaults=menu_defaults)
+            # 同步必要字段
+            changed = False
+            if menu_obj.title != menu_title:
+                menu_obj.title = menu_title; changed = True
+            if menu_obj.component != menu_component:
+                menu_obj.component = menu_component; changed = True
+            if changed:
+                menu_obj.save(update_fields=["title", "component"])
+
+            base = f"/api/{app_label}/{str(model_name).lower()}/"
+            perms_spec = [
+                {"name": f"{model_name} 列表", "code": f"{str(model_name).lower()}:list", "http_method": "GET", "url_pattern": base},
+                {"name": f"{model_name} 创建", "code": f"{str(model_name).lower()}:create", "http_method": "POST", "url_pattern": base},
+                {"name": f"{model_name} 更新", "code": f"{str(model_name).lower()}:update", "http_method": "PUT", "url_pattern": base + "*"},
+                {"name": f"{model_name} 删除", "code": f"{str(model_name).lower()}:delete", "http_method": "DELETE", "url_pattern": base + "*"},
+            ]
+
+            created_perm_ids = []
+            for spec in perms_spec:
+                p, _ = Permission.objects.get_or_create(
+                    code=spec["code"],
+                    defaults={
+                        "name": spec["name"],
+                        "http_method": spec["http_method"],
+                        "url_pattern": spec["url_pattern"],
+                        "menu": menu_obj,
+                        "is_active": True,
+                    }
+                )
+                # sync updates if exists
+                changed = False
+                if p.name != spec["name"]:
+                    p.name = spec["name"]; changed = True
+                if p.http_method != spec["http_method"]:
+                    p.http_method = spec["http_method"]; changed = True
+                if p.url_pattern != spec["url_pattern"]:
+                    p.url_pattern = spec["url_pattern"]; changed = True
+                if p.menu_id != menu_obj.id:
+                    p.menu = menu_obj; changed = True
+                if changed:
+                    p.save(update_fields=["name", "http_method", "url_pattern", "menu"])
+                created_perm_ids.append(p.id)
+
+            # grant to super admin role if exists
+            admin_role = None
+            for q in [
+                Role.objects.filter(code__iexact='ADMIN'),
+                Role.objects.filter(code__iexact='SUPER_ADMIN'),
+                Role.objects.filter(name__in=['超级管理员','SuperAdmin','Administrator'])
+            ]:
+                admin_role = q.first()
+                if admin_role:
+                    break
+            if admin_role:
+                admin_role.permissions.add(*created_perm_ids)
+                admin_role.menus.add(menu_obj)
+        except Exception:
+            # 权限创建失败不影响主流程
+            pass
 
         return Response({
             'detail': '生成成功',
