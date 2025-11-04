@@ -64,8 +64,11 @@
         </template>
 
         <template #actions="{ record }">
-          <a-button type="text" size="small" @click="handleEdit(record)">编辑</a-button>
-          <a-button type="text" size="small" status="danger" @click="handleDelete(record)">删除</a-button>
+          <a-space :size="8">
+            <a-button type="text" size="small" @click="handleEdit(record)">编辑</a-button>
+            <a-button type="text" size="small" @click="handleManageRolesOrgs(record)">角色/组织</a-button>
+            <a-button type="text" size="small" status="danger" @click="handleDelete(record)">删除</a-button>
+          </a-space>
         </template>
       </a-table>
     </a-card>
@@ -121,6 +124,82 @@
         </a-form-item>
       </a-form>
     </a-modal>
+
+    <!-- 角色和组织管理对话框 -->
+    <a-modal
+      v-model:visible="rolesOrgsVisible"
+      title="管理角色和组织"
+      @before-ok="handleSaveRolesOrgs"
+      @cancel="handleCancelRolesOrgs"
+      :width="700"
+    >
+      <a-form layout="vertical">
+        <a-form-item label="用户名">
+          <a-input :value="currentUser?.username || ''" disabled />
+          <template v-if="!currentUser?.username">
+            <span style="color: #f53f3f; font-size: 12px;">未加载到用户名</span>
+          </template>
+        </a-form-item>
+
+        <a-form-item label="角色">
+          <a-select
+            v-model="selectedRoles"
+            placeholder="请选择角色"
+            multiple
+            :loading="rolesLoading"
+            allow-search
+          >
+            <a-option
+              v-for="role in roleList"
+              :key="role.id"
+              :value="role.id"
+            >
+              {{ role.name }} ({{ role.code }})
+            </a-option>
+          </a-select>
+        </a-form-item>
+
+        <a-form-item label="组织">
+          <a-select
+            v-model="selectedOrganizations"
+            placeholder="请选择组织"
+            multiple
+            :loading="organizationsLoading"
+            allow-search
+            @change="handleOrganizationsChange"
+          >
+            <a-option
+              v-for="org in organizationList"
+              :key="org.id"
+              :value="org.id"
+            >
+              {{ org.name }}
+            </a-option>
+          </a-select>
+        </a-form-item>
+
+        <a-form-item label="主组织" v-if="selectedOrganizations.length > 0">
+          <a-select
+            v-model="primaryOrganization"
+            placeholder="请选择主组织"
+            allow-clear
+          >
+            <a-option
+              v-for="orgId in selectedOrganizations"
+              :key="orgId"
+              :value="orgId"
+            >
+              {{ getOrganizationName(orgId) }}
+            </a-option>
+          </a-select>
+          <template #extra>
+            <div style="color: #86909c; font-size: 12px; margin-top: 4px;">
+              提示：选择了组织时，必须选择一个主组织
+            </div>
+          </template>
+        </a-form-item>
+      </a-form>
+    </a-modal>
   </div>
 </template>
 
@@ -135,6 +214,19 @@ import {
   updateUser,
   deleteUser
 } from '@/api/user-management'
+import {
+  getUserRoleList,
+  createUserRole,
+  deleteUserRole
+} from '@/api/user-role'
+import {
+  getUserOrganizationList,
+  createUserOrganization,
+  deleteUserOrganization,
+  updateUserOrganization
+} from '@/api/user-organization'
+import { getRoleList } from '@/api/role'
+import { getOrganizationList } from '@/api/organization'
 
 const columns = [
   { title: 'ID', dataIndex: 'id', width: 80 },
@@ -146,7 +238,7 @@ const columns = [
   { title: '超级管理员', dataIndex: 'is_superuser', slotName: 'is_superuser', width: 120 },
   { title: '注册时间', dataIndex: 'date_joined', slotName: 'date_joined', width: 180 },
   { title: '最后登录', dataIndex: 'last_login', slotName: 'last_login', width: 180 },
-  { title: '操作', slotName: 'actions', width: 150, fixed: 'right' }
+  { title: '操作', slotName: 'actions', width: 220, fixed: 'right' }
 ]
 
 const searchText = ref('')
@@ -174,6 +266,17 @@ const formData = reactive({
   is_staff: false,
   is_superuser: false
 })
+
+// 角色和组织管理相关
+const rolesOrgsVisible = ref(false)
+const currentUser = ref(null)
+const roleList = ref([])
+const organizationList = ref([])
+const selectedRoles = ref([])
+const selectedOrganizations = ref([])
+const primaryOrganization = ref(null)
+const rolesLoading = ref(false)
+const organizationsLoading = ref(false)
 
 // 动态表单验证规则
 const getFormRules = () => {
@@ -370,6 +473,204 @@ const handleSubmit = async () => {
 // 取消
 const handleCancel = () => {
   formVisible.value = false
+}
+
+// 获取组织名称
+const getOrganizationName = (orgId) => {
+  const org = organizationList.value.find(o => o.id === orgId)
+  return org ? org.name : ''
+}
+
+// 组织选择变化时的处理
+const handleOrganizationsChange = (value) => {
+  // 如果清空了所有组织，也清除主组织
+  if (!value || value.length === 0) {
+    primaryOrganization.value = null
+  } else if (primaryOrganization.value && !value.includes(primaryOrganization.value)) {
+    // 如果主组织不在选中列表中，清除主组织
+    primaryOrganization.value = null
+  }
+}
+
+// 加载角色列表
+const loadRoleList = async () => {
+  rolesLoading.value = true
+  try {
+    const res = await getRoleList()
+    roleList.value = res.results || res.data || []
+  } catch (e) {
+    Message.error('加载角色列表失败')
+  } finally {
+    rolesLoading.value = false
+  }
+}
+
+// 加载组织列表
+const loadOrganizationList = async () => {
+  organizationsLoading.value = true
+  try {
+    const res = await getOrganizationList()
+    organizationList.value = res.results || res.data || []
+  } catch (e) {
+    Message.error('加载组织列表失败')
+  } finally {
+    organizationsLoading.value = false
+  }
+}
+
+// 加载用户的角色和组织
+const loadUserRolesOrgs = async (userId) => {
+  try {
+    // 加载用户角色
+    const rolesRes = await getUserRoleList({ user: userId })
+    const userRoles = rolesRes.results || rolesRes.data || []
+    selectedRoles.value = userRoles.map(ur => ur.role)
+
+    // 加载用户组织
+    const orgsRes = await getUserOrganizationList({ user: userId })
+    const userOrgs = orgsRes.results || orgsRes.data || []
+    selectedOrganizations.value = userOrgs.map(uo => uo.organization)
+    
+    // 找到主组织
+    const primaryOrg = userOrgs.find(uo => uo.is_primary)
+    if (primaryOrg) {
+      primaryOrganization.value = primaryOrg.organization
+    } else {
+      primaryOrganization.value = null
+    }
+  } catch (e) {
+    Message.error('加载用户角色和组织失败')
+  }
+}
+
+// 管理角色和组织
+const handleManageRolesOrgs = async (record) => {
+  // 确保保存完整的用户信息
+  currentUser.value = {
+    id: record.id,
+    username: record.username || '',
+    email: record.email || '',
+    ...record
+  }
+  
+  // 先显示对话框
+  rolesOrgsVisible.value = true
+  
+  // 然后加载数据
+  await Promise.all([
+    loadRoleList(),
+    loadOrganizationList(),
+    loadUserRolesOrgs(record.id)
+  ])
+}
+
+// 保存角色和组织
+const handleSaveRolesOrgs = async () => {
+  if (!currentUser.value) return false
+
+  // 验证主组织：如果选择了组织，必须选择主组织
+  if (selectedOrganizations.value.length > 0 && !primaryOrganization.value) {
+    Message.error('选择了组织时，必须选择一个主组织')
+    return false
+  }
+
+  try {
+    const userId = currentUser.value.id
+
+    // 1. 处理角色
+    // 获取当前用户的角色
+    const currentRolesRes = await getUserRoleList({ user: userId })
+    const currentUserRoles = currentRolesRes.results || currentRolesRes.data || []
+    const currentRoleIds = new Set(currentUserRoles.map(ur => ur.role))
+    const newRoleIds = new Set(selectedRoles.value)
+
+    // 删除不再需要的角色
+    for (const userRole of currentUserRoles) {
+      if (!newRoleIds.has(userRole.role)) {
+        await deleteUserRole(userRole.id)
+      }
+    }
+
+    // 添加新角色
+    for (const roleId of selectedRoles.value) {
+      if (!currentRoleIds.has(roleId)) {
+        await createUserRole({
+          user: userId,
+          role: roleId
+        })
+      }
+    }
+
+    // 2. 处理组织
+    // 获取当前用户的组织
+    const currentOrgsRes = await getUserOrganizationList({ user: userId })
+    const currentUserOrgs = currentOrgsRes.results || currentOrgsRes.data || []
+    const currentOrgIds = new Set(currentUserOrgs.map(uo => uo.organization))
+    const newOrgIds = new Set(selectedOrganizations.value)
+
+    // 删除不再需要的组织
+    for (const userOrg of currentUserOrgs) {
+      if (!newOrgIds.has(userOrg.organization)) {
+        await deleteUserOrganization(userOrg.id)
+      }
+    }
+
+    // 添加或更新组织
+    for (const orgId of selectedOrganizations.value) {
+      const existingUserOrg = currentUserOrgs.find(uo => uo.organization === orgId)
+      
+      if (existingUserOrg) {
+        // 更新主组织标记
+        if (existingUserOrg.is_primary !== (orgId === primaryOrganization.value)) {
+          await updateUserOrganization(existingUserOrg.id, {
+            user: userId,
+            organization: orgId,
+            is_primary: orgId === primaryOrganization.value
+          })
+        }
+      } else {
+        // 创建新组织关联
+        await createUserOrganization({
+          user: userId,
+          organization: orgId,
+          is_primary: orgId === primaryOrganization.value
+        })
+      }
+    }
+
+    // 确保只有一个主组织
+    if (primaryOrganization.value) {
+      const allUserOrgsRes = await getUserOrganizationList({ user: userId })
+      const allUserOrgs = allUserOrgsRes.results || allUserOrgsRes.data || []
+      
+      for (const userOrg of allUserOrgs) {
+        if (userOrg.organization !== primaryOrganization.value && userOrg.is_primary) {
+          await updateUserOrganization(userOrg.id, {
+            user: userId,
+            organization: userOrg.organization,
+            is_primary: false
+          })
+        }
+      }
+    }
+
+    Message.success('保存成功')
+    rolesOrgsVisible.value = false
+    return true
+  } catch (e) {
+    const errorMsg = e.response?.data?.detail || e.response?.data?.message || '保存失败'
+    Message.error(errorMsg)
+    return false
+  }
+}
+
+// 取消角色和组织管理
+const handleCancelRolesOrgs = () => {
+  rolesOrgsVisible.value = false
+  currentUser.value = null
+  selectedRoles.value = []
+  selectedOrganizations.value = []
+  primaryOrganization.value = null
 }
 
 onMounted(() => {
