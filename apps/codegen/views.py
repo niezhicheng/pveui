@@ -25,6 +25,9 @@ def build_model_code(app_label: str, model_name: str, fields: List[Dict[str, Any
     lines.append("from apps.common.models import BaseAuditModel")
     lines.append("")
     lines.append(f"class {model_name}(BaseAuditModel):")
+    lines.append("    # 自动生成的业务模型")
+    lines.append("    # 说明：继承 BaseAuditModel，包含审计与归属字段（created_by/updated_by/owner_organization）。")
+    lines.append("    # 可按需调整字段、添加索引/约束，或补充 __str__/Meta 配置。")
     if not fields:
         lines.append("    pass")
     else:
@@ -57,8 +60,18 @@ def build_model_code(app_label: str, model_name: str, fields: List[Dict[str, Any
             if unique:
                 args.append("unique=True")
             if default not in (None, ""):
-                # best-effort: dump json for primitive
-                args.append(f"default={json.dumps(default, ensure_ascii=False)}")
+                # Render Python literal for default: True/False numbers/strings
+                if isinstance(default, bool):
+                    lit = 'True' if default else 'False'
+                elif isinstance(default, (int, float)):
+                    lit = repr(default)
+                elif isinstance(default, str):
+                    # simple quote; no escaping strategy here for brevity
+                    lit = f"'{default}'"
+                else:
+                    # fallback to repr
+                    lit = repr(default)
+                args.append(f"default={lit}")
             if verbose_name:
                 args.append(f"verbose_name='{verbose_name}'")
 
@@ -94,6 +107,7 @@ class GenerateFromSpecView(APIView):
         model_name = data.get('model_name')
         module_path = data.get('module_path') or f"{app_label}/{str(model_name).lower()}"
         fields = data.get('fields') or []
+        enhanced = bool(data.get('enhanced_data_scope'))
 
         if not app_label or not model_name:
             return Response({'detail': 'app_label 与 model_name 必填'}, status=status.HTTP_400_BAD_REQUEST)
@@ -103,15 +117,66 @@ class GenerateFromSpecView(APIView):
         base_dir = Path(settings.BASE_DIR)
         app_dir = base_dir / 'apps' / app_label
         if not app_dir.exists():
-            return Response({'detail': f'app 不存在: {app_label}'}, status=status.HTTP_400_BAD_REQUEST)
+            # 自动创建最小 Django 应用结构，并尝试写入 INSTALLED_APPS
+            try:
+                app_dir.mkdir(parents=True, exist_ok=True)
+                (app_dir / '__init__.py').write_text('', encoding='utf-8')
+                app_config_name = f"{app_label.capitalize()}Config"
+                (app_dir / 'apps.py').write_text(
+                    "from django.apps import AppConfig\n\n"
+                    f"class {app_config_name}(AppConfig):\n"
+                    f"    default_auto_field = 'django.db.models.BigAutoField'\n"
+                    f"    name = 'apps.{app_label}'\n",
+                    encoding='utf-8'
+                )
+                for fname, content in [
+                    ('models.py', 'from django.db import models\n'),
+                    ('admin.py', ''),
+                    ('views.py', ''),
+                    ('urls.py', 'from django.urls import path\n\nurlpatterns = []\n'),
+                    ('migrations/__init__.py', ''),
+                ]:
+                    target = app_dir / fname
+                    if target.parent.name == 'migrations':
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_text(content, encoding='utf-8')
 
-        # 1) 生成模型代码片段（安全写入 .gen 文件）
+                settings_file = base_dir / 'django_vue_adminx' / 'settings.py'
+                try:
+                    text = settings_file.read_text(encoding='utf-8')
+                    if f"'apps.{app_label}'" not in text and f'"apps.{app_label}"' not in text:
+                        import re
+                        m = re.search(r"INSTALLED_APPS\s*=\s*\[(.*?)\]", text, re.S)
+                        if m:
+                            body = m.group(1)
+                            before = text[:m.start(1)]
+                            after = text[m.end(1):]
+                            new_entry = f"\n    'apps.{app_label}'\n"
+                            stripped = body.strip()
+                            if not stripped:
+                                new_body = new_entry
+                            else:
+                                if stripped.endswith(','):
+                                    new_body = body + new_entry
+                                else:
+                                    new_body = body.rstrip() + "," + new_entry
+                            new_text = before + new_body + after
+                            settings_file.write_text(new_text, encoding='utf-8')
+                except Exception:
+                    pass
+            except Exception as e:
+                return Response({'detail': f'自动创建应用失败: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # 1) 将模型类直接追加到 apps/<app>/models.py（若已存在同名类可手动处理）
         model_code = build_model_code(app_label, model_name, fields)
-        models_out = app_dir / 'generated_models' / f"models_{slugify(model_name)}.py"
-        models_written = write_file_safe(models_out, model_code)
+        models_py = app_dir / 'models.py'
+        if not models_py.exists():
+            models_py.write_text('from django.db import models\n', encoding='utf-8')
+        with models_py.open('a', encoding='utf-8') as f:
+            f.write('\n\n')
+            f.write(model_code)
 
-        # 2) 生成前后端 CRUD 文件（基于前期模板），不依赖模型已安装
-        #    直接用字段 JSON 上下文渲染模板，写入 .gen 文件
+        # 2) 生成后端 serializers/views 到 app 的标准文件（无前缀），urls 注入 router.register
         try:
             from string import Template
             templates_dir = base_dir / 'apps' / 'codegen' / 'templates'
@@ -127,13 +192,88 @@ class GenerateFromSpecView(APIView):
                 'fields_json': json.dumps(fields, ensure_ascii=False, indent=2),
             }
 
-            # backend
-            backend_base = app_dir / 'generated' / str(model_name).lower()
-            write_file_safe(backend_base / f'serializers_{str(model_name).lower()}.py', load('backend/serializers.py.tpl').safe_substitute(ctx))
-            write_file_safe(backend_base / f'views_{str(model_name).lower()}.py', load('backend/views.py.tpl').safe_substitute(ctx))
-            write_file_safe(backend_base / f'urls_{str(model_name).lower()}.py', load('backend/urls.py.tpl').safe_substitute(ctx))
+            # serializers.py 追加/创建
+            serializers_py = app_dir / 'serializers.py'
+            ser_tpl = 'backend/serializers_enhanced.py.tpl' if enhanced else 'backend/serializers.py.tpl'
+            ser_code = load(ser_tpl).safe_substitute(ctx)
+            if serializers_py.exists():
+                with serializers_py.open('a', encoding='utf-8') as f:
+                    f.write('\n\n')
+                    f.write(ser_code)
+            else:
+                serializers_py.write_text(ser_code, encoding='utf-8')
 
-            # frontend
+            # views.py 追加/创建（根据 enhanced 选择模板）
+            views_py = app_dir / 'views.py'
+            tpl_name = 'backend/views_enhanced.py.tpl' if enhanced else 'backend/views.py.tpl'
+            view_code = load(tpl_name).safe_substitute(ctx)
+            if views_py.exists():
+                with views_py.open('a', encoding='utf-8') as f:
+                    f.write('\n\n')
+                    f.write(view_code)
+            else:
+                views_py.write_text(view_code, encoding='utf-8')
+
+            # urls.py 注入 router 与 register
+            urls_py = app_dir / 'urls.py'
+            if urls_py.exists():
+                text = urls_py.read_text(encoding='utf-8')
+                # imports
+                if 'from django.urls import path, include' not in text:
+                    if 'from django.urls import' in text:
+                        text = text.replace('from django.urls import', 'from django.urls import')  # no-op placeholder
+                    else:
+                        text = 'from django.urls import path, include\n' + text
+                if 'DefaultRouter' not in text:
+                    text = 'from rest_framework.routers import DefaultRouter\n' + text
+                # router
+                if 'router = DefaultRouter()' not in text:
+                    text += '\n\nrouter = DefaultRouter()\n'
+                # register
+                register_line = f"router.register(r'{str(model_name).lower()}', {model_name}ViewSet, basename='{str(model_name).lower()}')\n"
+                if register_line not in text:
+                    import_line = f'from .views import {model_name}ViewSet\n'
+                    if import_line not in text:
+                        text = import_line + text
+                    text += register_line
+                # urlpatterns
+                if 'urlpatterns' in text and 'include(router.urls)' in text:
+                    pass
+                elif 'urlpatterns = router.urls' in text:
+                    text = text.replace('urlpatterns = router.urls', 'urlpatterns = [\n    path(\'\', include(router.urls)),\n]')
+                else:
+                    text += '\nurlpatterns = [\n    path(\'\', include(router.urls)),\n]\n'
+                urls_py.write_text(text, encoding='utf-8')
+            else:
+                urls_code = (
+                    'from django.urls import path, include\n'
+                    'from rest_framework.routers import DefaultRouter\n'
+                    f'from .views import {model_name}ViewSet\n\n'
+                    'router = DefaultRouter()\n'
+                    f"router.register(r'{str(model_name).lower()}', {model_name}ViewSet, basename='{str(model_name).lower()}')\n\n"
+                    'urlpatterns = [\n'
+                    "    path('', include(router.urls)),\n"
+                    ']\n'
+                )
+                urls_py.write_text(urls_code, encoding='utf-8')
+
+            # 2.1) 将 app 路由注册到项目 urls.py（/api/<app_label>/）
+            project_urls = base_dir / 'django_vue_adminx' / 'urls.py'
+            try:
+                ptxt = project_urls.read_text(encoding='utf-8')
+                include_line = f"path('api/{app_label}/', include('apps.{app_label}.urls')),"
+                if include_line not in ptxt:
+                    if 'from django.urls import path, re_path, include' not in ptxt:
+                        ptxt = ptxt.replace('from django.urls import path, re_path, include', 'from django.urls import path, re_path, include')
+                    # insert before closing list of urlpatterns
+                    insert_pos = ptxt.find(']')
+                    if insert_pos != -1:
+                        ptxt = ptxt[:insert_pos] + f"    {include_line}\n" + ptxt[insert_pos:]
+                    project_urls.write_text(ptxt, encoding='utf-8')
+            except Exception:
+                pass
+
+            # 3) 前端文件生成
             fe_base = base_dir / 'front-end' / 'src'
             write_file_safe(fe_base / 'api' / f"{str(model_name).lower()}.js", load('frontend/api.js.tpl').safe_substitute(ctx))
             module_parts = [p for p in module_path.split('/') if p]
@@ -143,7 +283,7 @@ class GenerateFromSpecView(APIView):
 
         return Response({
             'detail': '生成成功',
-            'model_file': str(models_written),
+            'model_file': str(models_py),
             'module_path': module_path,
         })
 

@@ -25,7 +25,7 @@ class BaseAuditModel(models.Model):
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
-        related_name='created_objects',
+        related_name='%(app_label)s_%(class)s_created',
         verbose_name='创建人',
     )
     updated_by = models.ForeignKey(
@@ -33,7 +33,7 @@ class BaseAuditModel(models.Model):
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
-        related_name='updated_objects',
+        related_name='%(app_label)s_%(class)s_updated',
         verbose_name='更新人',
     )
 
@@ -42,7 +42,7 @@ class BaseAuditModel(models.Model):
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
-        related_name='owned_objects',
+        related_name='%(app_label)s_%(class)s_owned',
         verbose_name='归属组织',
     )
 

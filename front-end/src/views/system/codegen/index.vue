@@ -7,7 +7,7 @@
 
       <a-form layout="vertical" style="width: 100%">
         <a-space size="large" direction="vertical" fill>
-          <a-grid :cols="3" :col-gap="16">
+          <a-grid :cols="4" :col-gap="16">
             <a-grid-item>
               <a-form-item label="应用标识 app_label">
                 <a-input v-model="form.app_label" placeholder="例如：curdexample" />
@@ -21,6 +21,11 @@
             <a-grid-item>
               <a-form-item label="前端模块路径 module_path">
                 <a-input v-model="form.module_path" placeholder="例如：system/book" />
+              </a-form-item>
+            </a-grid-item>
+            <a-grid-item>
+              <a-form-item label="增强数据权限控制">
+                <a-switch v-model="form.enhanced_data_scope" checked-text="开启" unchecked-text="关闭" />
               </a-form-item>
             </a-grid-item>
           </a-grid>
@@ -111,7 +116,7 @@ import { ref, reactive } from 'vue'
 import { Message } from '@arco-design/web-vue'
 import { submitCodegen } from '@/api/codegen'
 
-const form = reactive({ app_label: 'curdexample', model_name: 'Book', module_path: 'system/book' })
+const form = reactive({ app_label: 'curdexample', model_name: 'Book', module_path: 'system/book', enhanced_data_scope: true })
 const submitting = ref(false)
 
 let uid = 1
@@ -235,6 +240,7 @@ function buildPayload() {
     app_label: form.app_label,
     model_name: form.model_name,
     module_path: form.module_path,
+    enhanced_data_scope: !!form.enhanced_data_scope,
     fields: cleaned,
   }
 }
