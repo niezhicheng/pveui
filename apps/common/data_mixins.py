@@ -1,6 +1,7 @@
-"""RBAC 相关的 ViewSet Mixins。
+"""通用数据权限过滤 Mixin。
 
-提供数据权限过滤功能。
+提供基于 RBAC 数据权限范围的数据过滤功能。
+适用于继承 BaseAuditModel 的业务模型。
 """
 
 from typing import List, Optional

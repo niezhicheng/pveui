@@ -52,7 +52,9 @@ router.register(r'organizations', OrganizationViewSet)
 router.register(r'user-organizations', UserOrganizationViewSet)
 
 urlpatterns = [
-    path('', include(router.urls)),
+    # 将特殊路由放在 router.urls 之前，避免路由冲突
+    path('organizations/tree/', OrganizationTreeView.as_view()),
+    path('menu-tree/', MenuTreeView.as_view()),
     path('auth/login/', LoginView.as_view()),
     path('auth/logout/', LogoutView.as_view()),
     path('auth/user-info/', UserInfoView.as_view()),
@@ -60,6 +62,6 @@ urlpatterns = [
     path('auth/change-password/', ChangePasswordView.as_view()),
     path('auth/permissions/', UserPermissionsView.as_view()),
     path('auth/organizations/', UserOrganizationsView.as_view()),
-    path('organizations/tree/', OrganizationTreeView.as_view()),
-    path('menu-tree/', MenuTreeView.as_view()),
+    # router 的路由放在最后
+    path('', include(router.urls)),
 ]

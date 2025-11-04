@@ -125,22 +125,26 @@
           </a-select>
         </a-form-item>
 
-        <a-form-item field="menus" label="菜单">
-          <a-select
+        <a-form-item label="菜单">
+          <a-tree-select
+            v-if="formVisible && menuTree.length > 0"
             v-model="formData.menus"
             placeholder="请选择菜单"
             multiple
             :loading="menuLoading"
+            :data="menuTree"
+            :field-names="{ key: 'id', value: 'id', title: 'title', children: 'children' }"
+            allow-search
+            allow-clear
             :max-tag-count="3"
-          >
-            <a-option
-              v-for="menu in menuList"
-              :key="menu.id"
-              :value="menu.id"
-            >
-              {{ menu.title }}
-            </a-option>
-          </a-select>
+            style="width: 100%"
+          />
+          <a-spin v-else-if="menuLoading" style="width: 100%">
+            <div style="padding: 20px; text-align: center; color: #86909c;">
+              加载中...
+            </div>
+          </a-spin>
+          <a-empty v-else description="暂无菜单数据" />
         </a-form-item>
       </a-form>
     </a-modal>
@@ -148,7 +152,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, nextTick } from 'vue'
 import { Message, Modal } from '@arco-design/web-vue'
 import { IconPlus } from '@arco-design/web-vue/es/icon'
 import {
@@ -207,6 +211,7 @@ const orgLoading = ref(false)
 const permList = ref([])
 const permLoading = ref(false)
 const menuList = ref([])
+const menuTree = ref([])
 const menuLoading = ref(false)
 
 // 获取列表数据
@@ -275,16 +280,35 @@ const loadOptions = async () => {
     permLoading.value = false
   }
 
-  // 加载菜单列表（树形结构，需要扁平化）
+  // 加载菜单列表（树形结构）
   menuLoading.value = true
   try {
     const res = await getMenuList()
     // 菜单接口返回的是树形结构数组
     const treeData = Array.isArray(res) ? res : (res.results || res.data || [])
-    // 扁平化树形数据用于下拉选择
+    console.log('加载的菜单树数据:', treeData)
+    
+    // 移除 icon 字段，避免与 a-tree-select 内部的 icon prop 冲突
+    const removeIconField = (nodes) => {
+      if (!Array.isArray(nodes)) return []
+      return nodes.map(node => {
+        const { icon, ...rest } = node
+        const newNode = { ...rest }
+        if (node.children && Array.isArray(node.children) && node.children.length > 0) {
+          newNode.children = removeIconField(node.children)
+        }
+        return newNode
+      })
+    }
+    
+    // 移除 icon 字段后使用
+    menuTree.value = removeIconField(treeData)
+    // 同时扁平化用于其他需要（如果需要）
     menuList.value = flattenMenuTree(treeData)
+    console.log('菜单树数据已设置，menuTree.value:', menuTree.value)
   } catch (e) {
     console.error('加载菜单列表失败:', e)
+    menuTree.value = []
   } finally {
     menuLoading.value = false
   }
@@ -339,11 +363,20 @@ const handleCreate = () => {
 const handleEdit = async (record) => {
   formTitle.value = '编辑角色'
   try {
-    // 确保选项数据已加载
-    if (permList.value.length === 0 || menuList.value.length === 0 || orgList.value.length === 0) {
-      await loadOptions()
-    }
+    // 先重置表单数据
+    formData.menus = []
     
+    // 先加载数据，再显示对话框
+    // 确保选项数据已加载（每次都重新加载以确保数据最新）
+    await loadOptions()
+    
+    // 等待一下确保数据加载完成
+    await nextTick()
+    
+    console.log('编辑时菜单树数据:', menuTree.value)
+    console.log('菜单树数据长度:', menuTree.value.length)
+    
+    // 获取角色详情
     const res = await getRoleDetail(record.id)
     console.log('角色详情响应:', res)
     
@@ -366,6 +399,7 @@ const handleEdit = async (record) => {
     
     console.log('处理后的数据:', { permissions, menus, customOrgs })
     
+    // 设置表单数据
     Object.assign(formData, {
       id: res.id,
       name: res.name || '',
@@ -377,7 +411,17 @@ const handleEdit = async (record) => {
       menus: menus
     })
     
+    // 等待一下确保数据设置完成
+    await nextTick()
+    
+    // 显示对话框
     formVisible.value = true
+    
+    // 再次等待 DOM 更新，确保组件渲染完成
+    await nextTick()
+    await new Promise(resolve => setTimeout(resolve, 100))
+    console.log('弹窗打开后 formData.menus:', formData.menus)
+    console.log('弹窗打开后 menuTree:', menuTree.value)
   } catch (e) {
     console.error('获取角色详情失败:', e)
     Message.error('获取详情失败')

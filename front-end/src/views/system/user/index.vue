@@ -157,22 +157,18 @@
         </a-form-item>
 
         <a-form-item label="组织">
-          <a-select
+          <a-tree-select
             v-model="selectedOrganizations"
             placeholder="请选择组织"
             multiple
             :loading="organizationsLoading"
+            :data="organizationTree"
+            :field-names="{ key: 'id', value: 'id', title: 'name', children: 'children' }"
             allow-search
+            allow-clear
             @change="handleOrganizationsChange"
-          >
-            <a-option
-              v-for="org in organizationList"
-              :key="org.id"
-              :value="org.id"
-            >
-              {{ org.name }}
-            </a-option>
-          </a-select>
+            style="width: 100%"
+          />
         </a-form-item>
 
         <a-form-item label="主组织" v-if="selectedOrganizations.length > 0">
@@ -223,7 +219,7 @@ import {
   updateUserOrganization
 } from '@/api/user-organization'
 import { getRoleList } from '@/api/role'
-import { getOrganizationList } from '@/api/organization'
+import { getOrganizationList, getOrganizationTree } from '@/api/organization'
 
 const columns = [
   { title: 'ID', dataIndex: 'id', width: 80 },
@@ -273,6 +269,7 @@ const currentUser = reactive({
 })
 const roleList = ref([])
 const organizationList = ref([])
+const organizationTree = ref([])
 const selectedRoles = ref([])
 const selectedOrganizations = ref([])
 const primaryOrganization = ref(null)
@@ -506,17 +503,62 @@ const loadRoleList = async () => {
   }
 }
 
-// 加载组织列表
+// 加载组织列表（扁平列表，用于主组织选择）
 const loadOrganizationList = async () => {
   organizationsLoading.value = true
   try {
     const res = await getOrganizationList()
     organizationList.value = res.results || res.data || []
   } catch (e) {
-    Message.error('加载组织列表失败')
+    console.error('加载组织列表失败:', e)
   } finally {
     organizationsLoading.value = false
   }
+}
+
+// 加载组织树（用于树形选择）
+const loadOrganizationTree = async () => {
+  organizationsLoading.value = true
+  try {
+    const res = await getOrganizationTree()
+    // 后端返回的组织树数据结构应该包含 children
+    organizationTree.value = Array.isArray(res) ? res : (res.data || res.results || [])
+  } catch (e) {
+    console.error('加载组织树失败:', e)
+    // 如果获取树失败，尝试使用扁平列表构建树
+    if (organizationList.value.length > 0) {
+      organizationTree.value = buildTreeFromList(organizationList.value)
+    }
+  } finally {
+    organizationsLoading.value = false
+  }
+}
+
+// 从扁平列表构建树形结构
+const buildTreeFromList = (list) => {
+  const map = {}
+  const roots = []
+  
+  // 创建映射
+  list.forEach(item => {
+    map[item.id] = { ...item, children: [] }
+  })
+  
+  // 构建树
+  list.forEach(item => {
+    if (item.parent) {
+      const parent = map[item.parent]
+      if (parent) {
+        parent.children.push(map[item.id])
+      } else {
+        roots.push(map[item.id])
+      }
+    } else {
+      roots.push(map[item.id])
+    }
+  })
+  
+  return roots
 }
 
 // 加载用户的角色和组织
@@ -559,12 +601,13 @@ const handleManageRolesOrgs = async (record) => {
   // 先显示对话框
   rolesOrgsVisible.value = true
   
-  // 然后加载数据
-  await Promise.all([
-    loadRoleList(),
-    loadOrganizationList(),
-    loadUserRolesOrgs(record.id)
-  ])
+      // 然后加载数据
+      await Promise.all([
+        loadRoleList(),
+        loadOrganizationList(),
+        loadOrganizationTree(),
+        loadUserRolesOrgs(record.id)
+      ])
 }
 
 // 保存角色和组织
