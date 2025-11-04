@@ -305,12 +305,17 @@ class GenerateFromSpecView(APIView):
             # 菜单路由路径统一为单词（不含斜杠），用模型名小写
             menu_path = str(model_name).lower()
             menu_component = module_path if module_path.endswith('/index') else f"{module_path}/index"
+            # 放到 'system' 父菜单下（若不存在则创建）
+            parent_menu, _ = Menu.objects.get_or_create(path='system', defaults={
+                'title': '系统管理', 'component': '', 'icon': 'Setting', 'parent': None, 'order': 1, 'is_hidden': False
+            })
+
             menu_defaults = {
                 "title": menu_title,
                 "component": menu_component,
                 "icon": "",
                 "order": 100,
-                "parent": None,
+                "parent": parent_menu,
                 "is_hidden": False,
             }
             # 用 path 唯一识别菜单
@@ -321,8 +326,10 @@ class GenerateFromSpecView(APIView):
                 menu_obj.title = menu_title; changed = True
             if menu_obj.component != menu_component:
                 menu_obj.component = menu_component; changed = True
+            if menu_obj.parent_id != parent_menu.id:
+                menu_obj.parent = parent_menu; changed = True
             if changed:
-                menu_obj.save(update_fields=["title", "component"])
+                menu_obj.save(update_fields=["title", "component", "parent"])
 
             base = f"/api/{app_label}/{str(model_name).lower()}/"
             perms_spec = [

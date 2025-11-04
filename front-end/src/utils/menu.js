@@ -61,49 +61,48 @@ export function menuTreeToRoutes(menuTree) {
     } else {
       // 叶子节点，创建实际页面路由
       let routePath = menu.path || `/${menu.id}`
-      
-      // 如果是子路由，需要处理为相对路径
-      if (parentPath && routePath.startsWith(parentPath)) {
-        // 提取相对路径部分
-        routePath = routePath.replace(parentPath, '')
-        // 如果路径为空，使用父路径
-        if (!routePath || routePath === '/') {
-          routePath = parentPath
-        }
-        // 确保相对路径不以 / 开头（Vue Router 子路由规范）
+
+      if (parentPath) {
+        // 子路由：保持相对路径风格
         if (routePath.startsWith('/')) {
-          routePath = routePath.substring(1)
+          routePath = routePath.slice(1)
         }
-        // 如果提取后为空，使用默认名称
         if (!routePath) {
           routePath = `menu_${menu.id}`
         }
+        // 子路由直接返回页面路由
+        const routeName = (menu.path || '').replace(/\//g, '_').replace(/^_/, '') || `menu_${menu.id}`
+        return {
+          path: routePath,
+          name: routeName,
+          component: () => {
+            if (menu.component) return loadComponent(menu.component)
+            return import('@/views/menu-page/index.vue')
+          },
+          meta: { title: menu.title, icon: menu.icon, menuId: menu.id }
+        }
       } else {
-        // 顶层路由，确保以 / 开头
+        // 顶层叶子：包一层 Layout，保证左侧菜单与布局存在
         if (!routePath.startsWith('/')) {
           routePath = `/${routePath}`
         }
-      }
-      
-      // 生成路由名称
-      const routeName = menu.path?.replace(/\//g, '_').replace(/^_/, '') || `menu_${menu.id}`
-      
-      return {
-        path: routePath,
-        name: routeName,
-        component: () => {
-          // 根据 component 路径动态加载组件
-          if (menu.component) {
-            // 使用组件加载器加载组件
-            return loadComponent(menu.component)
-          }
-          // 如果没有 component，使用默认菜单页面
-          return import('@/views/menu-page/index.vue')
-        },
-        meta: {
-          title: menu.title,
-          icon: menu.icon,
-          menuId: menu.id, // 保存菜单ID，方便默认页面查找菜单信息
+        const routeName = (menu.path || '').replace(/\//g, '_').replace(/^_/, '') || `menu_${menu.id}`
+        const childPath = routePath.startsWith('/') ? routePath.slice(1) : routePath
+        return {
+          path: routePath,
+          component: Layout,
+          meta: { title: menu.title, icon: menu.icon },
+          children: [
+            {
+              path: '',
+              name: routeName,
+              component: () => {
+                if (menu.component) return loadComponent(menu.component)
+                return import('@/views/menu-page/index.vue')
+              },
+              meta: { title: menu.title, icon: menu.icon, menuId: menu.id }
+            }
+          ]
         }
       }
     }

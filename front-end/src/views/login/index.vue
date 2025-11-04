@@ -37,7 +37,7 @@
 
         <a-space :size="16" direction="vertical">
           <div class="login-form-password-actions">
-            <a-checkbox checked="rememberPassword" @change="setRememberPassword">
+            <a-checkbox v-model="rememberPassword">
               记住密码
             </a-checkbox>
             <a-link>忘记密码？</a-link>
@@ -57,7 +57,8 @@
 <script setup>
 import { useStore } from 'vuex'
 import { useRouter } from 'vue-router'
-import { reactive } from 'vue'
+import { reactive, ref } from 'vue'
+import { Message } from '@arco-design/web-vue'
 import useLoading from '@/hooks/loading'
 
 const userInfo = reactive({
@@ -69,17 +70,59 @@ const { loading, setLoading } = useLoading()
 const store = useStore()
 const router = useRouter()
 
+const rememberPassword = ref(false)
+
 const handleSubmit = async () => {
+  console.log('[login] submit start', JSON.parse(JSON.stringify(userInfo)))
   setLoading(true)
   const result = await store.dispatch('user/login', userInfo)
   setLoading(false)
 
   if (result) {
-    // 登录成功后，获取菜单并跳转（菜单会在路由守卫中加载）
-    await store.dispatch('menu/getMenuTree')
-    // 跳转到首页，路由守卫会自动重定向到第一个菜单
-    await router.push('/')
+    // 登录成功后立刻拉取用户信息，填充 user.id，避免守卫再次跳回登录
+    const ok = await store.dispatch('user/getUserInfo')
+    console.log('[login] getUserInfo ok:', ok, store.state.user)
+    if (!ok) return
+    // 主动拉菜单并计算第一个可访问路径，直接跳转
+    const menuOk = await store.dispatch('menu/getMenuTree')
+    const menuTree = store.state.menu.menuTree || []
+    console.log('[login] menu loaded:', menuOk, menuTree)
+    const firstPath = findFirstMenuPath(menuTree) || '/'
+    console.log('[login] navigate to firstPath:', firstPath)
+    await router.replace(firstPath)
+    console.log('[login] replace to firstPath done')
+  } else {
+    Message.error('用户名或密码错误')
+    console.warn('[login] login failed')
   }
+}
+
+function findFirstMenuPath(menuTree, parentPath = '') {
+  for (const menu of menuTree) {
+    const curr = normalizePath(menu.path)
+    const full = joinPath(parentPath, curr)
+    if (menu.children && menu.children.length > 0) {
+      const found = findFirstMenuPath(menu.children, full)
+      if (found) return found
+    } else if (curr) {
+      return full || '/'
+    }
+  }
+  return null
+}
+
+function normalizePath(p) {
+  if (!p) return ''
+  return p.replace(/^\/+|\/+$/g, '')
+}
+
+function joinPath(parent, child) {
+  const a = normalizePath(parent)
+  const b = normalizePath(child)
+  if (!a && !b) return '/'
+  if (!a) return `/${b}`
+  if (!b) return `/${a}`
+  return `/${a}/${b}`
 }
 </script>
 

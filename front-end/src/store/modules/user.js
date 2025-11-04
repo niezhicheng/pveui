@@ -22,7 +22,9 @@ const actions = {
    */
   async login({ commit }, loginForm) {
     try {
+      console.log('[store.user] login payload:', loginForm)
       const res = await login(loginForm)
+      console.log('[store.user] login response:', res)
       // 后端返回：{ id, username, roles, permissions }
       commit('SET_USER_INFO', {
         id: res.id,
@@ -32,7 +34,7 @@ const actions = {
       })
       return true
     } catch (e) {
-      console.error('登录失败:', e)
+      console.error('[store.user] 登录失败:', e)
       return false
     }
   },
@@ -43,7 +45,9 @@ const actions = {
    */
   async getUserInfo({ commit }) {
     try {
+      console.log('[store.user] fetching user info...')
       const res = await getUserInfo()
+      console.log('[store.user] user info response:', res)
       commit('SET_USER_INFO', {
         id: res.id,
         username: res.username,
@@ -55,7 +59,7 @@ const actions = {
       })
       return true
     } catch (e) {
-      console.error('获取用户信息失败:', e)
+      console.error('[store.user] 获取用户信息失败:', e)
       return false
     }
   },

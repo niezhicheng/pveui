@@ -15,10 +15,11 @@ export const constantRoutes = [
     component: () => import('@/views/login'),
     hidden: true
   },
-  // 根路径暂时重定向到 /system（路由加载后会覆盖）
+  // 初始根路径占位，避免在动态路由注入前访问 '/' 报错
   {
+    name: 'rootRedirect',
     path: '/',
-    redirect: '/system',
+    redirect: '/login',
     hidden: true
   },
 ]
@@ -26,6 +27,7 @@ export const constantRoutes = [
 // 动态路由（从后端菜单生成）
 let dynamicRoutes = []
 const catchAllRouteName = 'catchAll'
+const rootRouteName = 'rootRedirect'
 
 const buildRouter = () => createRouter({
   history: createWebHashHistory(),
@@ -42,21 +44,21 @@ export function addDynamicRoutes(menuTree) {
   // 移除旧的路由
   dynamicRoutes.forEach(route => {
     try {
-      if (route.name) {
+      if (route.name && router.hasRoute && router.hasRoute(route.name)) {
         router.removeRoute(route.name)
-      } else if (route.path) {
-        router.removeRoute(route.path)
       }
     } catch (e) {
-      // 忽略，路由可能不存在
+      // 忽略
     }
   })
 
   // 移除 catchAll 路由（如果存在）
   try {
-    router.removeRoute(catchAllRouteName)
+    if (router.hasRoute && router.hasRoute(catchAllRouteName)) {
+      router.removeRoute(catchAllRouteName)
+    }
   } catch (e) {
-    // 忽略，可能不存在
+    // 忽略
   }
 
   // 生成新路由
@@ -80,15 +82,18 @@ export function addDynamicRoutes(menuTree) {
     // 否则使用第一个路由的路径
     const rootRedirect = firstRoute.redirect || firstRoute.path
 
-    // 移除旧的根路径路由
+    // 移除旧的根路径路由（使用命名路由移除）
     try {
-      router.removeRoute('/')
+      if (router.hasRoute && router.hasRoute(rootRouteName)) {
+        router.removeRoute(rootRouteName)
+      }
     } catch (e) {
       // 忽略
     }
 
     // 添加新的根路径重定向
     router.addRoute({
+      name: rootRouteName,
       path: '/',
       redirect: rootRedirect,
       hidden: true
@@ -96,6 +101,11 @@ export function addDynamicRoutes(menuTree) {
   }
 
   // 添加 catchAll 路由（必须在最后）
+  try {
+    if (router.hasRoute && router.hasRoute(catchAllRouteName)) {
+      router.removeRoute(catchAllRouteName)
+    }
+  } catch (e) {}
   router.addRoute({
     name: catchAllRouteName,
     path: '/:catchAll(.*)',
