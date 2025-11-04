@@ -29,6 +29,15 @@ from .views import (
     UserRoleViewSet,
     OrganizationViewSet,
     UserOrganizationViewSet,
+    LoginView,
+    LogoutView,
+    UserInfoView,
+    CheckPermissionView,
+    ChangePasswordView,
+    UserPermissionsView,
+    UserOrganizationsView,
+    OrganizationTreeView,
+    MenuTreeView,
 )
 
 # 可根据需要将 basename 显式指定，当前使用默认模型名推导
@@ -42,4 +51,13 @@ router.register(r'user-organizations', UserOrganizationViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),
+    path('auth/login/', LoginView.as_view()),
+    path('auth/logout/', LogoutView.as_view()),
+    path('auth/user-info/', UserInfoView.as_view()),
+    path('auth/check-permission/', CheckPermissionView.as_view()),
+    path('auth/change-password/', ChangePasswordView.as_view()),
+    path('auth/permissions/', UserPermissionsView.as_view()),
+    path('auth/organizations/', UserOrganizationsView.as_view()),
+    path('organizations/tree/', OrganizationTreeView.as_view()),
+    path('menu-tree/', MenuTreeView.as_view()),
 ]
