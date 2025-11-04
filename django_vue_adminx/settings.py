@@ -170,9 +170,10 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 
 # DRF 基础配置：默认登录可访问，提供分页、过滤、搜索、排序后端
+# 使用 RBAC 权限控制作为全局默认权限类
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',
+        'apps.rbac.permissions.RBACPermission',
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',

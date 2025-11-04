@@ -29,7 +29,7 @@ from .serializers import (
 
 
 class DefaultPermission(permissions.IsAuthenticated):
-    """默认认证权限：要求登录。"""
+    """默认认证权限：要求登录（已弃用，现在使用全局 RBACPermission）。"""
     pass
 
 
@@ -37,7 +37,7 @@ class MenuViewSet(viewsets.ModelViewSet):
     """菜单 CRUD 与列表检索。列表接口返回树形结构。"""
     queryset = Menu.objects.all().order_by('order', 'id')
     serializer_class = MenuSerializer
-    permission_classes = [DefaultPermission]
+    # 使用全局 RBACPermission（在 settings 中配置）
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['parent', 'is_hidden']
     search_fields = ['title', 'path', 'component']
@@ -91,7 +91,7 @@ class PermissionViewSet(viewsets.ModelViewSet):
     """权限 CRUD 与列表检索。"""
     queryset = Permission.objects.all().order_by('id')
     serializer_class = PermissionSerializer
-    permission_classes = [DefaultPermission]
+    # 使用全局 RBACPermission（在 settings 中配置）
     pagination_class = LargePageSizePagination  # 使用支持大页面大小的分页器
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['http_method', 'menu', 'is_active']
@@ -103,7 +103,7 @@ class RoleViewSet(viewsets.ModelViewSet):
     """角色 CRUD 与列表检索，支持 data_scope 与自定义组织集合。"""
     queryset = Role.objects.all().order_by('id')
     serializer_class = RoleSerializer
-    permission_classes = [DefaultPermission]
+    # 使用全局 RBACPermission（在 settings 中配置）
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['data_scope']
     search_fields = ['name', 'code']
@@ -125,7 +125,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
     """组织 CRUD 与列表检索。"""
     queryset = Organization.objects.all().order_by('order', 'id')
     serializer_class = OrganizationSerializer
-    permission_classes = [DefaultPermission]
+    # 使用全局 RBACPermission（在 settings 中配置）
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['parent', 'is_active']
     search_fields = ['name', 'code']
@@ -144,9 +144,9 @@ class UserOrganizationViewSet(viewsets.ModelViewSet):
 
 
 class UserViewSet(viewsets.ModelViewSet):
-    """用户 CRUD 与列表检索。"""
+    """用户 CRUD 与列表检索。支持数据权限过滤。"""
     queryset = User.objects.all().order_by('-id')
-    permission_classes = [DefaultPermission]
+    # 使用全局 RBACPermission（在 settings 中配置）
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['is_active', 'is_staff', 'is_superuser']
     search_fields = ['username', 'email', 'first_name', 'last_name']
@@ -158,6 +158,132 @@ class UserViewSet(viewsets.ModelViewSet):
         elif self.action in ['update', 'partial_update']:
             return UserUpdateSerializer
         return UserSerializer
+
+    def get_queryset(self):
+        """用户视图的数据权限过滤：基于用户所属的组织。"""
+        queryset = super(viewsets.ModelViewSet, self).get_queryset()
+        user = self.request.user
+
+        # 超级用户拥有所有数据权限
+        if user.is_superuser:
+            return queryset
+
+        # 获取用户的所有角色及其数据权限
+        from .models import Role
+        user_roles = Role.objects.filter(user_roles__user=user).select_related().prefetch_related('custom_data_organizations')
+        
+        if not user_roles.exists():
+            # 没有角色，只返回自己
+            return queryset.filter(id=user.id)
+
+        # 获取最宽泛的数据权限
+        data_scope, custom_orgs = self._get_broadest_data_scope(user_roles)
+        
+        # 根据数据权限范围过滤（用户视图基于用户所属组织）
+        if data_scope == 'ALL':
+            return queryset
+        elif data_scope == 'SELF':
+            return queryset.filter(id=user.id)
+        elif data_scope == 'DEPT':
+            return self._filter_users_by_dept(queryset, user)
+        elif data_scope == 'DEPT_AND_SUB':
+            return self._filter_users_by_dept_and_sub(queryset, user)
+        elif data_scope == 'CUSTOM':
+            return self._filter_users_by_custom(queryset, custom_orgs)
+        else:
+            # 默认只返回自己
+            return queryset.filter(id=user.id)
+
+    def _filter_users_by_dept(self, queryset, user):
+        """过滤：本部门的用户。"""
+        primary_org = self._get_user_primary_org(user)
+        if not primary_org:
+            return queryset.filter(id=user.id)
+        
+        # 获取属于该组织的所有用户
+        from .models import UserOrganization
+        user_ids = UserOrganization.objects.filter(organization=primary_org).values_list('user_id', flat=True)
+        return queryset.filter(id__in=user_ids)
+
+    def _filter_users_by_dept_and_sub(self, queryset, user):
+        """过滤：本部门及其子部门的用户。"""
+        primary_org = self._get_user_primary_org(user)
+        if not primary_org:
+            return queryset.filter(id=user.id)
+        
+        # 获取主组织及其所有子组织的ID
+        org_ids = self._get_org_and_children_ids(primary_org)
+        
+        # 获取属于这些组织的所有用户
+        from .models import UserOrganization
+        user_ids = UserOrganization.objects.filter(organization_id__in=org_ids).values_list('user_id', flat=True)
+        return queryset.filter(id__in=user_ids)
+
+    def _filter_users_by_custom(self, queryset, custom_orgs):
+        """过滤：自定义组织的用户。"""
+        if not custom_orgs:
+            return queryset.none()
+        
+        org_ids = [org.id for org in custom_orgs]
+        from .models import UserOrganization
+        user_ids = UserOrganization.objects.filter(organization_id__in=org_ids).values_list('user_id', flat=True)
+        return queryset.filter(id__in=user_ids)
+
+    def _get_user_primary_org(self, user):
+        """获取用户的主组织。"""
+        from .models import UserOrganization
+        try:
+            uo = UserOrganization.objects.filter(user=user, is_primary=True).select_related('organization').first()
+            if uo:
+                return uo.organization
+        except Exception:
+            pass
+        return None
+
+    def _get_org_and_children_ids(self, org):
+        """获取组织及其所有子组织的ID列表（递归）。"""
+        from .models import Organization
+        org_ids = [org.id]
+        
+        def get_children(organization):
+            """递归获取子组织。"""
+            children = Organization.objects.filter(parent=organization)
+            for child in children:
+                org_ids.append(child.id)
+                get_children(child)
+        
+        get_children(org)
+        return org_ids
+
+    def _get_broadest_data_scope(self, roles):
+        """获取最宽泛的数据权限范围。"""
+        from .models import Organization
+        priority_map = {
+            'ALL': 5,
+            'DEPT_AND_SUB': 4,
+            'DEPT': 3,
+            'CUSTOM': 2,
+            'SELF': 1,
+        }
+        
+        max_priority = 0
+        broadest_scope = 'SELF'
+        custom_orgs = []
+        
+        for role in roles:
+            priority = priority_map.get(role.data_scope, 0)
+            if priority > max_priority:
+                max_priority = priority
+                broadest_scope = role.data_scope
+        
+        if broadest_scope == 'CUSTOM':
+            custom_org_ids = set()
+            for role in roles:
+                if role.data_scope == 'CUSTOM':
+                    custom_org_ids.update(role.custom_data_organizations.values_list('id', flat=True))
+            custom_orgs = list(Organization.objects.filter(id__in=custom_org_ids))
+        
+        return broadest_scope, custom_orgs
 
 
 class LoginView(APIView):

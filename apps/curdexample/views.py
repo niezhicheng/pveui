@@ -3,6 +3,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 from apps.common.viewsets import ActionSerializerMixin
 from apps.common.mixins import AuditOwnerPopulateMixin, SoftDeleteMixin
+from apps.common.data_mixins import DataScopeFilterMixin
 from .models import Example
 from .serializers import (
     ExampleListSerializer,
@@ -12,7 +13,7 @@ from .serializers import (
 )
 
 
-class ExampleViewSet(AuditOwnerPopulateMixin, SoftDeleteMixin, ActionSerializerMixin, viewsets.ModelViewSet):
+class ExampleViewSet(DataScopeFilterMixin, AuditOwnerPopulateMixin, SoftDeleteMixin, ActionSerializerMixin, viewsets.ModelViewSet):
     """示例 CRUD 视图集：支持按动作切换序列化器。"""
     queryset = Example.objects.select_related(
         'owner_organization',
