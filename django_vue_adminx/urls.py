@@ -31,6 +31,7 @@ urlpatterns = [
     path('api/rbac/', include('apps.rbac.urls')),
     path('api/curd/', include('apps.curdexample.urls')),
     path('api/common/', include('apps.common.urls')),
+    path('api/codegen/', include('apps.codegen.urls')),
 ]
 
 # 仅当定义了 MEDIA_ROOT 时才添加媒体文件映射（避免导入期 AttributeError）
