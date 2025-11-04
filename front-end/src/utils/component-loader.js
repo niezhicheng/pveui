@@ -10,6 +10,7 @@ const componentMap = {
   'system/menu/index': () => import('@/views/system/menu/index.vue'),
   'system/permission/index': () => import('@/views/system/permission/index.vue'),
   'system/organization/index': () => import('@/views/system/organization/index.vue'),
+  'system/codegen/index': () => import('@/views/system/codegen/index.vue'),
   'curdexample/index': () => import('@/views/curdexample/index.vue'),
   // 自动添加其他路径
 }

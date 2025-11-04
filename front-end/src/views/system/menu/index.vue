@@ -57,7 +57,7 @@
     <a-modal
       v-model:visible="formVisible"
       :title="formTitle"
-      @ok="handleSubmit"
+      @before-ok="handleSubmit"
       @cancel="handleCancel"
       :width="600"
     >
@@ -280,8 +280,12 @@ const handleDelete = (record) => {
 
 // 提交表单
 const handleSubmit = async () => {
-  const valid = await formRef.value?.validate()
-  if (!valid) return
+  // Arco 表单校验：成功时 resolve(undefined)，失败时抛异常
+  try {
+    await formRef.value?.validate()
+  } catch (e) {
+    return false
+  }
 
   try {
     const data = {
@@ -302,11 +306,15 @@ const handleSubmit = async () => {
       Message.success('创建成功')
     }
 
-    formVisible.value = false
+    // 返回 true 让弹窗关闭
     fetchData()
     loadMenuList() // 刷新菜单列表
+    return true
   } catch (e) {
+    console.error('提交菜单失败:', e)
     Message.error(formData.id ? '更新失败' : '创建失败')
+    // 返回 false 阻止关闭，方便用户修正
+    return false
   }
 }
 

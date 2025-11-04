@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'corsheaders',
+    'apps.codegen',
     'apps.rbac.apps.RbacConfig',
     'apps.curdexample.apps.CurdexampleConfig',
 ]
