@@ -54,7 +54,7 @@
     <a-modal
       v-model:visible="formVisible"
       :title="formTitle"
-      @ok="handleSubmit"
+      @before-ok="handleSubmit"
       @cancel="handleCancel"
       :width="600"
     >
@@ -230,24 +230,59 @@ const fetchData = async () => {
   }
 }
 
+// 将树形菜单扁平化
+const flattenMenuTree = (tree, result = []) => {
+  tree.forEach(item => {
+    result.push({
+      id: item.id,
+      title: item.title,
+      path: item.path,
+      component: item.component,
+      icon: item.icon,
+      order: item.order,
+      parent: item.parent,
+      is_hidden: item.is_hidden
+    })
+    if (item.children && item.children.length > 0) {
+      flattenMenuTree(item.children, result)
+    }
+  })
+  return result
+}
+
+// 加载所有权限（不分页，使用大的page_size）
+const loadAllPermissions = async () => {
+  try {
+    // 使用大的page_size一次性获取所有数据
+    const res = await getPermissionList({ page: 1, page_size: 1000 })
+    return res.results || res.data || []
+  } catch (e) {
+    console.error('加载权限列表失败:', e)
+    return []
+  }
+}
+
 // 加载下拉选项数据
 const loadOptions = async () => {
-  // 加载权限列表
+  // 加载权限列表（获取所有数据）
   permLoading.value = true
   try {
-    const res = await getPermissionList()
-    permList.value = res.results || res.data || []
+    permList.value = await loadAllPermissions()
+    console.log('加载的权限列表:', permList.value.length, '条')
   } catch (e) {
     console.error('加载权限列表失败:', e)
   } finally {
     permLoading.value = false
   }
 
-  // 加载菜单列表
+  // 加载菜单列表（树形结构，需要扁平化）
   menuLoading.value = true
   try {
     const res = await getMenuList()
-    menuList.value = res.results || res.data || []
+    // 菜单接口返回的是树形结构数组
+    const treeData = Array.isArray(res) ? res : (res.results || res.data || [])
+    // 扁平化树形数据用于下拉选择
+    menuList.value = flattenMenuTree(treeData)
   } catch (e) {
     console.error('加载菜单列表失败:', e)
   } finally {
@@ -304,19 +339,47 @@ const handleCreate = () => {
 const handleEdit = async (record) => {
   formTitle.value = '编辑角色'
   try {
+    // 确保选项数据已加载
+    if (permList.value.length === 0 || menuList.value.length === 0 || orgList.value.length === 0) {
+      await loadOptions()
+    }
+    
     const res = await getRoleDetail(record.id)
+    console.log('角色详情响应:', res)
+    
+    // 处理 permissions 和 menus：可能是 ID 数组或对象数组
+    let permissions = []
+    if (res.permissions && Array.isArray(res.permissions)) {
+      permissions = res.permissions.map(p => typeof p === 'object' ? p.id : p)
+    }
+    
+    let menus = []
+    if (res.menus && Array.isArray(res.menus)) {
+      menus = res.menus.map(m => typeof m === 'object' ? m.id : m)
+    }
+    
+    // 处理 custom_data_organizations
+    let customOrgs = []
+    if (res.custom_data_organizations && Array.isArray(res.custom_data_organizations)) {
+      customOrgs = res.custom_data_organizations.map(o => typeof o === 'object' ? o.id : o)
+    }
+    
+    console.log('处理后的数据:', { permissions, menus, customOrgs })
+    
     Object.assign(formData, {
       id: res.id,
-      name: res.name,
-      code: res.code,
+      name: res.name || '',
+      code: res.code || '',
       description: res.description || '',
       data_scope: res.data_scope || 'SELF',
-      custom_data_organizations: res.custom_data_organizations || [],
-      permissions: res.permissions || [],
-      menus: res.menus || []
+      custom_data_organizations: customOrgs,
+      permissions: permissions,
+      menus: menus
     })
+    
     formVisible.value = true
   } catch (e) {
+    console.error('获取角色详情失败:', e)
     Message.error('获取详情失败')
   }
 }
@@ -338,34 +401,59 @@ const handleDelete = (record) => {
   })
 }
 
-// 提交表单
+// 提交表单（使用 before-ok，需要返回 Promise 或 false 来阻止关闭）
 const handleSubmit = async () => {
-  const valid = await formRef.value?.validate()
-  if (!valid) return
+  console.log('handleSubmit 被调用', formData)
+  
+  // Arco Design 的表单验证：验证失败会抛出错误，成功返回 undefined
+  try {
+    await formRef.value?.validate()
+    console.log('表单验证通过')
+  } catch (error) {
+    console.log('表单验证失败:', error)
+    return false // 验证失败，阻止关闭
+  }
 
   try {
+    // 确保所有数组字段都是 ID 数组
     const data = {
-      name: formData.name,
-      code: formData.code,
-      description: formData.description,
+      name: formData.name.trim(),
+      code: formData.code.trim(),
+      description: formData.description?.trim() || '',
       data_scope: formData.data_scope,
-      custom_data_organizations: formData.custom_data_organizations,
-      permissions: formData.permissions,
-      menus: formData.menus
+      custom_data_organizations: Array.isArray(formData.custom_data_organizations) 
+        ? formData.custom_data_organizations.map(id => typeof id === 'object' ? id.id : id)
+        : [],
+      permissions: Array.isArray(formData.permissions)
+        ? formData.permissions.map(id => typeof id === 'object' ? id.id : id)
+        : [],
+      menus: Array.isArray(formData.menus)
+        ? formData.menus.map(id => typeof id === 'object' ? id.id : id)
+        : []
     }
 
+    console.log('提交数据:', data)
+
     if (formData.id) {
+      console.log('编辑角色，ID:', formData.id)
       await updateRole(formData.id, data)
+      console.log('updateRole 成功')
       Message.success('更新成功')
     } else {
+      console.log('新增角色，数据:', data)
       await createRole(data)
+      console.log('createRole 成功')
       Message.success('创建成功')
     }
 
     formVisible.value = false
     fetchData()
+    return true // 允许关闭对话框
   } catch (e) {
-    Message.error(formData.id ? '更新失败' : '创建失败')
+    console.error('提交失败:', e)
+    const errorMsg = e.response?.data?.detail || e.response?.data?.message || (formData.id ? '更新失败' : '创建失败')
+    Message.error(errorMsg)
+    return false // 提交失败，阻止关闭
   }
 }
 

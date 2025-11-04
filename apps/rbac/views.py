@@ -11,6 +11,7 @@ from rest_framework import viewsets, permissions, filters, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
+from apps.common.pagination import LargePageSizePagination
 from .models import Menu, Permission, Role, UserRole, Organization, UserOrganization
 
 User = get_user_model()
@@ -91,6 +92,7 @@ class PermissionViewSet(viewsets.ModelViewSet):
     queryset = Permission.objects.all().order_by('id')
     serializer_class = PermissionSerializer
     permission_classes = [DefaultPermission]
+    pagination_class = LargePageSizePagination  # 使用支持大页面大小的分页器
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['http_method', 'menu', 'is_active']
     search_fields = ['name', 'code', 'url_pattern']

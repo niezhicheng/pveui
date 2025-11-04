@@ -15,7 +15,7 @@ export const constantRoutes = [
     component: () => import('@/views/login'),
     hidden: true
   },
-  
+
   // 根路径暂时重定向到 /system（路由加载后会覆盖）
   {
     path: '/',
