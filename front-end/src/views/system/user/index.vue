@@ -135,10 +135,7 @@
     >
       <a-form layout="vertical">
         <a-form-item label="用户名">
-          <a-input :value="currentUser?.username || ''" disabled />
-          <template v-if="!currentUser?.username">
-            <span style="color: #f53f3f; font-size: 12px;">未加载到用户名</span>
-          </template>
+          <a-typography-text>{{ currentUser.username || '未设置' }}</a-typography-text>
         </a-form-item>
 
         <a-form-item label="角色">
@@ -269,7 +266,11 @@ const formData = reactive({
 
 // 角色和组织管理相关
 const rolesOrgsVisible = ref(false)
-const currentUser = ref(null)
+const currentUser = reactive({
+  id: null,
+  username: '',
+  email: ''
+})
 const roleList = ref([])
 const organizationList = ref([])
 const selectedRoles = ref([])
@@ -545,13 +546,15 @@ const loadUserRolesOrgs = async (userId) => {
 
 // 管理角色和组织
 const handleManageRolesOrgs = async (record) => {
-  // 确保保存完整的用户信息
-  currentUser.value = {
-    id: record.id,
-    username: record.username || '',
-    email: record.email || '',
-    ...record
-  }
+  console.log('handleManageRolesOrgs - record:', record)
+  
+  // 更新 currentUser 对象（使用 reactive 对象，直接赋值属性）
+  currentUser.id = record.id
+  currentUser.username = record.username || ''
+  currentUser.email = record.email || ''
+  
+  console.log('currentUser:', currentUser)
+  console.log('currentUser.username:', currentUser.username)
   
   // 先显示对话框
   rolesOrgsVisible.value = true
@@ -566,7 +569,7 @@ const handleManageRolesOrgs = async (record) => {
 
 // 保存角色和组织
 const handleSaveRolesOrgs = async () => {
-  if (!currentUser.value) return false
+  if (!currentUser.id) return false
 
   // 验证主组织：如果选择了组织，必须选择主组织
   if (selectedOrganizations.value.length > 0 && !primaryOrganization.value) {
@@ -575,7 +578,7 @@ const handleSaveRolesOrgs = async () => {
   }
 
   try {
-    const userId = currentUser.value.id
+    const userId = currentUser.id
 
     // 1. 处理角色
     // 获取当前用户的角色
@@ -667,7 +670,9 @@ const handleSaveRolesOrgs = async () => {
 // 取消角色和组织管理
 const handleCancelRolesOrgs = () => {
   rolesOrgsVisible.value = false
-  currentUser.value = null
+  currentUser.id = null
+  currentUser.username = ''
+  currentUser.email = ''
   selectedRoles.value = []
   selectedOrganizations.value = []
   primaryOrganization.value = null
