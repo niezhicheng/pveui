@@ -22,7 +22,7 @@ services:
   # Django 后端服务
   backend:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile.backend
     container_name: django-vue-adminx-backend
     command: >
@@ -30,7 +30,7 @@ services:
              python manage.py init_rbac --create-superuser 2>/dev/null || true &&
              gunicorn --bind 0.0.0.0:8000 --workers 4 --timeout 120 django_vue_adminx.wsgi:application"
     volumes:
-      - .:/app
+      - ./backend:/app
       - static_volume:/app/staticfiles
       - media_volume:/app/media
     ports:

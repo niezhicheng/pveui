@@ -109,6 +109,8 @@ docker-compose exec backend python manage.py init_rbac
 docker-compose exec backend python manage.py collectstatic
 ```
 
+**注意**: 所有后端管理命令都在容器内执行，工作目录为 `/app`（对应本地的 `backend/` 目录）
+
 ### 重建服务
 
 ```bash
