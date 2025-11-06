@@ -1,7 +1,7 @@
 <template>
   <div class="login">
     <div class="login-form">
-      <div class="login-form-title">Login Arco Admin</div>
+      <div class="login-form-title">Django Vue AdminX 登录</div>
 
       <a-form
         ref="loginForm"
@@ -40,13 +40,9 @@
             <a-checkbox v-model="rememberPassword">
               记住密码
             </a-checkbox>
-            <a-link>忘记密码？</a-link>
           </div>
           <a-button type="primary" html-type="submit" long :loading="loading">
             登录
-          </a-button>
-          <a-button type="text" long class="login-form-register-btn">
-            注册账号
           </a-button>
         </a-space>
       </a-form>
