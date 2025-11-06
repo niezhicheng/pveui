@@ -10,10 +10,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# 安装系统依赖
+# 安装系统依赖（MySQL 客户端和 mysqlclient 编译依赖）
 RUN apt-get update && apt-get install -y \
     gcc \
-    postgresql-client \
+    default-libmysqlclient-dev \
+    pkg-config \
+    mysql-client \
     && rm -rf /var/lib/apt/lists/*
 
 # 复制 requirements 文件

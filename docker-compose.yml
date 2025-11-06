@@ -1,20 +1,22 @@
 version: '3.8'
 
 services:
-  # PostgreSQL 数据库
+  # MySQL 数据库
   db:
-    image: postgres:15-alpine
+    image: mysql:8.0
     container_name: django-vue-adminx-db
     environment:
-      POSTGRES_DB: django_vue_adminx
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres123
+      MYSQL_DATABASE: django_vue_adminx
+      MYSQL_USER: django
+      MYSQL_PASSWORD: django123
+      MYSQL_ROOT_PASSWORD: root123
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - mysql_data:/var/lib/mysql
     ports:
-      - "5432:5432"
+      - "3306:3306"
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot123"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -39,12 +41,12 @@ services:
       - .env
     environment:
       - DEBUG=False
-      - DATABASE_URL=postgresql://postgres:postgres123@db:5432/django_vue_adminx
+      - DATABASE_URL=mysql://django:django123@db:3306/django_vue_adminx
       - DB_NAME=django_vue_adminx
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres123
+      - DB_USER=django
+      - DB_PASSWORD=django123
       - DB_HOST=db
-      - DB_PORT=5432
+      - DB_PORT=3306
       - SECRET_KEY=${SECRET_KEY:-django-insecure--mpclg7e91pkc&c+dz3lcf%=ddfye@9asvaf4z7xnjd9tpt#bb}
     depends_on:
       db:
@@ -68,7 +70,7 @@ services:
     restart: unless-stopped
 
 volumes:
-  postgres_data:
+  mysql_data:
   static_volume:
   media_volume:
 

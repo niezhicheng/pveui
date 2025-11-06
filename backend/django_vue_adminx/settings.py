@@ -92,15 +92,19 @@ WSGI_APPLICATION = 'django_vue_adminx.wsgi.application'
 
 # 支持从环境变量读取数据库配置（用于 Docker）
 if os.getenv('DATABASE_URL'):
-    # 使用 PostgreSQL（Docker 环境）
+    # 使用 MySQL（Docker 环境）
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.postgresql',
+            'ENGINE': 'django.db.backends.mysql',
             'NAME': os.getenv('DB_NAME', 'django_vue_adminx'),
-            'USER': os.getenv('DB_USER', 'postgres'),
-            'PASSWORD': os.getenv('DB_PASSWORD', 'postgres123'),
+            'USER': os.getenv('DB_USER', 'django'),
+            'PASSWORD': os.getenv('DB_PASSWORD', 'django123'),
             'HOST': os.getenv('DB_HOST', 'db'),
-            'PORT': os.getenv('DB_PORT', '5432'),
+            'PORT': os.getenv('DB_PORT', '3306'),
+            'OPTIONS': {
+                'charset': 'utf8mb4',
+                'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            },
         }
     }
 else:

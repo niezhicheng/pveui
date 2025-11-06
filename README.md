@@ -63,7 +63,7 @@
 - **django-cors-headers** - 跨域支持
 - **APScheduler** - 任务调度
 - **psutil** - 系统监控
-- **PostgreSQL/SQLite** - 数据库
+- **MySQL/SQLite** - 数据库
 
 ### 前端
 - **Vue 3** - 前端框架
@@ -141,7 +141,7 @@ django-vue-adminx/
 
 - Python 3.12+
 - Node.js 18+
-- PostgreSQL 15+ (可选，默认使用 SQLite)
+- MySQL 8.0+ (可选，默认使用 SQLite)
 
 ### 后端安装
 
@@ -229,7 +229,7 @@ docker-compose down
 
 - **前端**: http://localhost
 - **后端 API**: http://localhost:8000
-- **数据库**: localhost:5432
+- **数据库**: localhost:3306
 
 详细 Docker 部署说明请查看 [DOCKER.md](./DOCKER.md)
 
@@ -533,4 +533,6 @@ GET /api/audit/logs/{id}/
 ---
 
 **⭐ 如果这个项目对你有帮助，请给个 Star！**
+
+
 

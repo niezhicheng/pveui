@@ -54,11 +54,12 @@ docker-compose down -v
 - **API 代理**: `/api/` 路径自动代理到后端
 
 ### 数据库服务 (db)
-- **类型**: PostgreSQL 15
-- **端口**: 5432
+- **类型**: MySQL 8.0
+- **端口**: 3306
 - **数据库名**: django_vue_adminx
-- **用户名**: postgres
-- **密码**: postgres123
+- **用户名**: django
+- **密码**: django123
+- **Root 密码**: root123
 
 ## 环境变量
 
@@ -68,16 +69,16 @@ docker-compose down -v
 SECRET_KEY=your-secret-key-here
 DEBUG=False
 DB_NAME=django_vue_adminx
-DB_USER=postgres
-DB_PASSWORD=postgres123
+DB_USER=django
+DB_PASSWORD=django123
 DB_HOST=db
-DB_PORT=5432
+DB_PORT=3306
 ```
 
 ## 数据持久化
 
 Docker Compose 使用数据卷持久化以下数据：
-- `postgres_data`: PostgreSQL 数据库数据
+- `mysql_data`: MySQL 数据库数据
 - `static_volume`: Django 静态文件
 - `media_volume`: Django 媒体文件
 
@@ -90,7 +91,9 @@ Docker Compose 使用数据卷持久化以下数据：
 docker-compose exec backend bash
 
 # 进入数据库容器
-docker-compose exec db psql -U postgres -d django_vue_adminx
+docker-compose exec db mysql -u django -pdjango123 django_vue_adminx
+# 或使用 root 用户
+docker-compose exec db mysql -u root -proot123 django_vue_adminx
 ```
 
 ### 执行 Django 管理命令
@@ -126,7 +129,7 @@ docker-compose up -d backend
 
 - **前端**: http://localhost
 - **后端 API**: http://localhost:8000
-- **数据库**: localhost:5432
+- **数据库**: localhost:3306
 
 ## 默认账号
 
@@ -153,6 +156,8 @@ docker-compose up -d backend
 docker-compose ps db
 docker-compose logs db
 ```
+
+如果 MySQL 连接失败，可能需要等待数据库完全初始化（首次启动可能需要 30-60 秒）。
 
 ### 前端无法访问后端 API
 
