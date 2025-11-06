@@ -25,7 +25,7 @@ services:
   backend:
     build:
       context: ..
-      dockerfile: deploy/Dockerfile.backend
+      dockerfile: deploy/backend/Dockerfile
     container_name: django-vue-adminx-backend
     command: >
       sh -c "python manage.py migrate --noinput &&
@@ -61,7 +61,7 @@ services:
   frontend:
     build:
       context: ..
-      dockerfile: deploy/Dockerfile.frontend
+      dockerfile: deploy/frontend/Dockerfile
       args:
         - FRONTEND_DIR=front-end
     container_name: django-vue-adminx-frontend
