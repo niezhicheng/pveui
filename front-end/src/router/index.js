@@ -22,6 +22,19 @@ export const constantRoutes = [
     redirect: '/login',
     hidden: true
   },
+  // 个人中心（常量路由，不随菜单控制）
+  {
+    path: '/profile',
+    component: Layout,
+    hidden: true,
+    children: [
+      {
+        path: '',
+        component: () => import('@/views/system/profile/index.vue'),
+        hidden: true
+      }
+    ]
+  },
 ]
 
 // 动态路由（从后端菜单生成）

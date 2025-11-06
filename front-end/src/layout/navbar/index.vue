@@ -20,7 +20,8 @@
             <a-doption disabled>
               <span>{{ userInfo.username || '用户' }}</span>
             </a-doption>
-            <a-doption>Github</a-doption>
+            <a-doption>个人中心</a-doption>
+            <a-doption>项目仓库</a-doption>
             <a-doption>退出登录</a-doption>
           </template>
         </a-dropdown>
@@ -45,8 +46,11 @@ const onMenuClick = async v => {
       await $store.dispatch('user/logout')
       await $router.replace('/login')
       break
-    case 'Github':
-      window.open("https://github.com/zhaozhentao/arco_admin_template", "_blank")
+    case '个人中心':
+      await $router.push('/profile')
+      break
+    case '项目仓库':
+      window.open("https://github.com/niezhicheng/django-vue-adminx", "_blank")
       break
   }
 }
