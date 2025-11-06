@@ -1,0 +1,32 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual env
+venv/
+.env
+
+# Editor/OS
+.DS_Store
+.idea/
+.vscode/
+
+# Django: ignore generated migrations (keep __init__.py)
+backend/apps/**/migrations/*.py
+!backend/apps/**/migrations/__init__.py
+
+# SQLite database (dev)
+backend/db.sqlite3
+
+# Static/media build output
+backend/staticfiles/
+backend/media/
+
+# Node
+front-end/node_modules/
+front-end/dist/
+
+# Docker local files
+*.log
+
