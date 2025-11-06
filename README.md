@@ -143,7 +143,7 @@ django-vue-adminx/
 ### 环境要求
 
 - Python 3.12+
-- Node.js 18+
+- Node.js 22+
 - MySQL 8.0+ (可选，默认使用 SQLite)
 
 ### 后端安装
@@ -174,11 +174,13 @@ pip install -r requirements.txt
 
 5. **数据库迁移**
 ```bash
+python manage.py makemigrations
 python manage.py migrate
 ```
 
 6. **初始化 RBAC 数据**
 ```bash
+
 python manage.py init_rbac --create-superuser
 ```
 

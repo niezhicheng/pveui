@@ -1,0 +1,115 @@
+一、本地快速体验（开发模式）
+
+1. 后端（Django + DRF）
+   - 进入后端目录：
+     cd backend
+   - 创建并激活虚拟环境（可跳过使用自备环境）：
+     python -m venv venv
+     source venv/bin/activate   # macOS/Linux
+     venv\Scripts\activate     # Windows
+   - 安装依赖：
+     pip install -r requirements.txt
+   - 初始化数据库（默认 SQLite）：
+     python manage.py migrate
+   - 初始化 RBAC（可自动创建超管 admin/admin123）：
+     python manage.py init_rbac --create-superuser
+   - 启动服务：
+     python manage.py runserver
+   - 访问：
+     http://127.0.0.1:8000
+
+2. 前端（Vue3 + Vite）
+   - 进入前端目录：
+     cd front-end
+   - 安装依赖：
+     npm install
+   - 启动开发服务：
+     npm run dev
+   - 访问：
+     http://localhost:5173
+
+3. 默认账号
+   - 用户名：admin
+   - 密码：admin123
+
+4. 代码生成器使用
+   - 登录前端 → 系统管理 → 代码生成器
+   - 配置 app_label、model_name、字段等，点击“生成代码”
+   - 生成后请在 backend 目录执行数据库迁移：
+     python manage.py makemigrations
+     python manage.py migrate
+   - 刷新前端即可看到新菜单/页面
+
+二、生产部署（物理机）
+
+1. 环境准备
+   - 安装 Python 3.12+、Node.js 18+
+   - 系统用户（推荐非 root），并准备目录：/opt/django-vue-adminx
+
+2. 获取代码
+   - cd /opt && git clone <repo> django-vue-adminx && cd django-vue-adminx
+
+3. 后端准备
+   - cd backend
+   - python -m venv venv && source venv/bin/activate
+   - pip install -r requirements.txt
+   - 配置环境变量（生产）：
+     export DEBUG=False
+     export SECRET_KEY=<your-secret>
+     export DATABASE_URL=mysql://<user>:<pwd>@<host>:3306/django_vue_adminx
+   - 初始化数据库：
+     python manage.py migrate
+     python manage.py init_rbac --create-superuser
+   - 运行 Gunicorn（临时验证）：
+     gunicorn --bind 0.0.0.0:8000 --workers 4 django_vue_adminx.wsgi:application
+
+4. 前端构建
+   - cd ../front-end
+   - npm install && npm run build
+   - 产物位于 front-end/dist，可由 Nginx 托管为静态站点
+
+5. Nginx 参考（反向代理后端 + 托管前端）
+   - server_name your.domain.com;
+   - 前端：root /opt/django-vue-adminx/front-end/dist;
+   - 后端代理：location /api/ { proxy_pass http://127.0.0.1:8000/; }
+
+6. 后台常驻（systemd 示例）
+   - 建立 /etc/systemd/system/dva-backend.service：
+     [Unit]\nDescription=Django Vue AdminX Backend\nAfter=network.target
+     [Service]\nUser=www-data\nWorkingDirectory=/opt/django-vue-adminx/backend\nEnvironment="DEBUG=False"\nExecStart=/opt/django-vue-adminx/backend/venv/bin/gunicorn --bind 0.0.0.0:8000 --workers 4 django_vue_adminx.wsgi:application\nRestart=always
+     [Install]\nWantedBy=multi-user.target
+   - 启动并开机自启：
+     systemctl daemon-reload && systemctl enable --now dva-backend
+
+7. 升级/发布
+   - git pull 获取新代码
+   - 后端：pip install -r requirements.txt；python manage.py migrate；systemctl restart dva-backend
+   - 前端：npm run build；替换 dist
+
+三、常见问题
+
+1. 登录后无菜单/无权限
+   - 进入 backend 执行：python manage.py init_rbac
+   - 检查用户是否分配了角色与组织
+
+2. 前端调用接口 401/403
+   - 检查是否已登录、权限是否匹配
+   - 开发模式的 CORS/CSRF 已放宽，如仍失败，请刷新并重试
+
+3. 迁移相关
+   - 本项目默认忽略迁移文件提交到 Git，仅需在本地或服务器运行：
+     python manage.py makemigrations
+     python manage.py migrate
+
+四、目录与地址
+
+- 后端：backend/
+- 前端：front-end/
+- 后端 API：/api/...
+- 登录页（前端）：/login
+
+五、反馈与建议
+
+- 如需自定义菜单结构、图标或登录页风格，可在前端 src/views/layout、src/views/login 处调整
+- 如需增加新模块，优先使用“代码生成器”快速创建，再按需微调
+
