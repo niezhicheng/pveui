@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'apps.rbac.apps.RbacConfig',
     'apps.curdexample.apps.CurdexampleConfig',
     'apps.audit.apps.AuditConfig',
+    'apps.shop.apps.ShopConfig',
 ]
 
 MIDDLEWARE = [

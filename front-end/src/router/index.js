@@ -15,6 +15,12 @@ export const constantRoutes = [
     component: () => import('@/views/login'),
     hidden: true
   },
+  // 发卡网前台（不需要登录）
+  {
+    path: '/shop',
+    component: () => import('@/views/shop/index.vue'),
+    hidden: true
+  },
   // 初始根路径占位，避免在动态路由注入前访问 '/' 报错
   {
     name: 'rootRedirect',
