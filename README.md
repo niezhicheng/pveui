@@ -1,6 +1,6 @@
 # Django Vue AdminX
 
-一个基于 Django REST Framework 和 Vue 3 的现代化后台管理系统，提供完整的 RBAC 权限控制、代码生成器、操作日志、任务调度等企业级功能。
+一个基于 Django REST Framework 和 Vue 3 的现代化后台管理系统，提供完整的 RBAC 权限控制、代码生成器(可ai辅助建表)、操作日志、任务调度等企业级功能。
 
 ![Python Version](https://img.shields.io/badge/python-3.12+-blue.svg)
 ![Django Version](https://img.shields.io/badge/django-5.2.7-green.svg)
