@@ -41,6 +41,32 @@ python manage.py migrate
             </a-grid-item>
           </a-grid>
 
+          <a-card class="ai-box" size="small">
+            <a-space direction="vertical" fill>
+              <div class="ai-box__header">
+                <a-typography-title :heading="5">AI 辅助建表</a-typography-title>
+                <a-tag color="arcoblue" bordered>实验特性</a-tag>
+              </div>
+              <a-typography-text type="secondary">
+                描述业务实体的用途、关键字段或约束，AI 将自动生成符合本工具格式的 JSON 并回填。
+              </a-typography-text>
+              <a-textarea
+                v-model="aiPrompt"
+                placeholder="例如：我要管理图书馆藏，包含书名、作者、ISBN、价格、出版日期、是否可借阅等字段"
+                allow-clear
+                :auto-size="{ minRows: 3, maxRows: 6 }"
+              />
+              <a-space align="center">
+                <a-button type="outline" :loading="aiLoading" @click="handleAiGenerate">AI 生成字段</a-button>
+                <a-typography-text type="secondary">生成后可继续调整字段，满意后再点击“生成代码”</a-typography-text>
+              </a-space>
+              <a-alert v-if="aiSummary" type="success" closable @close="aiSummary = ''">
+                <template #title>AI 建表建议</template>
+                <div>{{ aiSummary }}</div>
+              </a-alert>
+            </a-space>
+          </a-card>
+
           <div class="toolbar">
             <a-space>
               <a-button type="primary" @click="addField">新增字段</a-button>
@@ -125,10 +151,13 @@ python manage.py migrate
 <script setup>
 import { ref, reactive, h } from 'vue'
 import { Message, Modal } from '@arco-design/web-vue'
-import { submitCodegen } from '@/api/codegen'
+import { submitCodegen, generateSchemaByAI } from '@/api/codegen'
 
 const form = reactive({ app_label: 'curdexample', model_name: 'Book', module_path: 'system/book', enhanced_data_scope: true })
 const submitting = ref(false)
+const aiPrompt = ref('')
+const aiSummary = ref('')
+const aiLoading = ref(false)
 
 let uid = 1
 const nextId = () => uid++
@@ -145,39 +174,43 @@ const typeOptions = [
   { label: 'ForeignKey', value: 'ForeignKey' },
 ]
 
-const fields = ref([
-])
+const fields = ref([])
+
+function createFieldFromSchema(field = {}) {
+  return {
+    _id: nextId(),
+    name: field.name || '',
+    verbose_name: field.verbose_name || field.name || '',
+    type: field.type || 'CharField',
+    required: field.required !== undefined ? !!field.required : true,
+    unique: field.unique !== undefined ? !!field.unique : false,
+    default: field.default ?? '',
+    max_length: field.max_length ?? 128,
+    max_digits: field.max_digits ?? 10,
+    decimal_places: field.decimal_places ?? 2,
+    related_app: field.related_app || '',
+    related_model: field.related_model || '',
+  }
+}
 
 function addField() {
-  fields.value.push({
-    _id: nextId(),
-    name: '',
-    verbose_name: '',
-    type: 'CharField',
-    required: true,
-    unique: false,
-    default: '',
-    max_length: 128,
-    max_digits: 10,
-    decimal_places: 2,
-    related_app: '',
-    related_model: '',
-  })
+  fields.value.push(createFieldFromSchema())
 }
 
 function addPresetBook() {
   fields.value = [
-    { _id: nextId(), name: 'title', verbose_name: '书名', type: 'CharField', required: true, unique: false, default: '', max_length: 128 },
-    { _id: nextId(), name: 'author', verbose_name: '作者', type: 'CharField', required: false, unique: false, default: '', max_length: 64 },
-    { _id: nextId(), name: 'isbn', verbose_name: 'ISBN', type: 'CharField', required: false, unique: true, default: '', max_length: 32 },
-    { _id: nextId(), name: 'price', verbose_name: '价格', type: 'DecimalField', required: false, unique: false, default: 0, max_digits: 10, decimal_places: 2 },
-    { _id: nextId(), name: 'published_date', verbose_name: '出版日期', type: 'DateField', required: false, unique: false, default: '' },
-    { _id: nextId(), name: 'is_available', verbose_name: '是否可借阅', type: 'BooleanField', required: false, unique: false, default: true },
+    createFieldFromSchema({ name: 'title', verbose_name: '书名', type: 'CharField', required: true, max_length: 128 }),
+    createFieldFromSchema({ name: 'author', verbose_name: '作者', type: 'CharField', required: false, max_length: 64 }),
+    createFieldFromSchema({ name: 'isbn', verbose_name: 'ISBN', type: 'CharField', required: false, unique: true, max_length: 32 }),
+    createFieldFromSchema({ name: 'price', verbose_name: '价格', type: 'DecimalField', required: false, default: 0, max_digits: 10, decimal_places: 2 }),
+    createFieldFromSchema({ name: 'published_date', verbose_name: '出版日期', type: 'DateField', required: false }),
+    createFieldFromSchema({ name: 'is_available', verbose_name: '是否可借阅', type: 'BooleanField', required: false, default: true }),
   ]
 }
 
 function clearFields() {
   fields.value = []
+  aiSummary.value = ''
 }
 
 function removeField(index) {
@@ -256,6 +289,41 @@ function buildPayload() {
   }
 }
 
+function applySchemaFromAI(schema) {
+  if (!schema) return
+  if (schema.app_label) form.app_label = schema.app_label
+  if (schema.model_name) form.model_name = schema.model_name
+  if (schema.module_path) form.module_path = schema.module_path
+  if (Array.isArray(schema.fields) && schema.fields.length) {
+    fields.value = schema.fields.map(item => createFieldFromSchema(item))
+  }
+  aiSummary.value = schema.summary || ''
+}
+
+const handleAiGenerate = async () => {
+  const prompt = aiPrompt.value.trim()
+  if (!prompt) {
+    Message.warning('请先输入业务描述')
+    return
+  }
+  aiLoading.value = true
+  try {
+    const schema = await generateSchemaByAI({
+      prompt,
+      app_label: form.app_label,
+      model_name: form.model_name,
+      module_path: form.module_path,
+    })
+    applySchemaFromAI(schema)
+    Message.success('AI 已生成字段，可继续调整后提交')
+  } catch (error) {
+    const detail = error?.response?.data?.detail || error?.message || 'AI 生成失败'
+    Message.error(detail)
+  } finally {
+    aiLoading.value = false
+  }
+}
+
 const handleGenerate = async () => {
   if (!validateForm()) return
   submitting.value = true
@@ -284,5 +352,7 @@ const handleGenerate = async () => {
 .codegen-page { padding: 20px; }
 .toolbar { display: flex; justify-content: space-between; align-items: center; }
 .param-row { display: flex; gap: 8px; align-items: center; }
+.ai-box { background: #fafbff; }
+.ai-box__header { display: flex; align-items: center; gap: 8px; }
 </style>
 

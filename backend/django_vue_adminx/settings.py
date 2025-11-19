@@ -220,3 +220,15 @@ REST_FRAMEWORK = {
         'rest_framework.filters.OrderingFilter',
     ],
 }
+
+
+# AI 代码生成配置（需在环境变量中提供 AI_CODEGEN_API_KEY）
+AI_CODEGEN = {
+    'ENABLED': bool(os.getenv('AI_CODEGEN_API_KEY')),
+    'API_KEY': os.getenv('AI_CODEGEN_API_KEY', ''),
+    'PROVIDER': os.getenv('AI_CODEGEN_PROVIDER', 'openai'),
+    'MODEL': os.getenv('AI_CODEGEN_MODEL', 'gpt-4o-mini'),
+    'BASE_URL': os.getenv('AI_CODEGEN_BASE_URL', 'https://api.openai.com/v1'),
+    'TEMPERATURE': float(os.getenv('AI_CODEGEN_TEMPERATURE', '0.1')),
+    'TIMEOUT': int(os.getenv('AI_CODEGEN_TIMEOUT', '30')),
+}

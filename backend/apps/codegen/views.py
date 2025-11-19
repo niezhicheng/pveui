@@ -1,14 +1,21 @@
 from __future__ import annotations
 
 import json
+import logging
+import re
 from pathlib import Path
 from typing import Any, Dict, List
+from urllib import error as urlerror
+from urllib import request as urlrequest
 
 from django.conf import settings
 from django.utils.text import slugify
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+
+
+logger = logging.getLogger(__name__)
 
 
 def write_file_safe(target: Path, content: str) -> Path:
@@ -389,5 +396,211 @@ class GenerateFromSpecView(APIView):
             'model_file': str(models_py),
             'module_path': module_path,
         })
+
+
+class AISchemaSuggestView(APIView):
+    """
+    结合大模型，根据业务描述输出符合现有生成器要求的 JSON 结构，前端可直接渲染。
+    """
+
+    system_prompt = """你是资深的 Django/Vue 低代码平台专家，任务是把用户提供的业务描述
+    转换为用于自动建表和 CRUD 生成的 JSON 结构。返回的 JSON 必须严格遵循以下格式：
+    {
+      "app_label": "inventory",
+      "model_name": "Book",
+      "module_path": "system/book",
+      "fields": [
+        {
+          "name": "title",
+          "verbose_name": "书名",
+          "type": "CharField",
+          "required": true,
+          "unique": false,
+          "default": "",
+          "max_length": 128
+        }
+      ],
+      "summary": "一句话解释模型用途"
+    }
+
+    约束：
+    1. 只能输出 JSON，不要包含额外的文字、Markdown 或解释。
+    2. 字段 name 使用 snake_case，类型必须是 CharField/TextField/IntegerField/PositiveIntegerField/DecimalField/BooleanField/DateField/DateTimeField/ForeignKey。
+    3. ForeignKey 字段需要提供 related_app 与 related_model。
+    4. summary 用中文简要描述模型。
+    """
+
+    def post(self, request, *args, **kwargs):
+        payload = request.data or {}
+        prompt = (payload.get('prompt') or payload.get('description') or '').strip()
+        app_label = (payload.get('app_label') or '').strip()
+        model_name = (payload.get('model_name') or '').strip()
+        module_path = (payload.get('module_path') or '').strip()
+
+        if not prompt:
+            return Response({'detail': 'prompt 不能为空'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            content = self.invoke_llm(prompt, app_label, model_name, module_path)
+            schema = self.parse_schema_from_ai(content, defaults={
+                'app_label': app_label,
+                'model_name': model_name,
+                'module_path': module_path,
+            })
+        except ValueError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except RuntimeError as exc:
+            logger.exception("AI schema generation failed")
+            return Response({'detail': str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
+
+        return Response(schema)
+
+    def invoke_llm(self, prompt: str, app_label: str, model_name: str, module_path: str) -> str:
+        cfg = getattr(settings, 'AI_CODEGEN', {})
+        api_key = cfg.get('API_KEY')
+        base_url = (cfg.get('BASE_URL') or 'https://api.openai.com/v1').rstrip('/')
+        model = cfg.get('MODEL') or 'gpt-4o-mini'
+        temperature = cfg.get('TEMPERATURE', 0.1)
+        timeout = cfg.get('TIMEOUT', 30)
+
+        if not api_key:
+            raise ValueError('未配置 AI_CODEGEN_API_KEY，无法调用 AI 助手')
+
+        endpoint = f"{base_url}/chat/completions"
+        user_prompt = self.build_user_prompt(prompt, app_label, model_name, module_path)
+        body = json.dumps({
+            'model': model,
+            'messages': [
+                {'role': 'system', 'content': self.system_prompt},
+                {'role': 'user', 'content': user_prompt},
+            ],
+            'temperature': temperature,
+        }).encode('utf-8')
+
+        req = urlrequest.Request(
+            endpoint,
+            data=body,
+            headers={
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json',
+                'User-Agent': 'django-vue-adminx/ai-codegen',
+            },
+            method='POST',
+        )
+
+        try:
+            with urlrequest.urlopen(req, timeout=timeout) as resp:
+                resp_body = resp.read().decode('utf-8')
+        except urlerror.HTTPError as exc:
+            detail = exc.read().decode('utf-8') if hasattr(exc, 'read') else str(exc)
+            raise RuntimeError(f'AI 服务响应失败: {detail[:200]}') from exc
+        except urlerror.URLError as exc:
+            raise RuntimeError(f'无法连接 AI 服务: {exc.reason}') from exc
+
+        data = json.loads(resp_body)
+        choices = data.get('choices')
+        if not choices:
+            raise RuntimeError('AI 服务未返回结果')
+        content = (choices[0].get('message') or {}).get('content')
+        if not content:
+            raise RuntimeError('AI 服务返回内容为空')
+        return content
+
+    @staticmethod
+    def build_user_prompt(prompt: str, app_label: str, model_name: str, module_path: str) -> str:
+        context_bits = []
+        if app_label:
+            context_bits.append(f"app_label: {app_label}")
+        if model_name:
+            context_bits.append(f"model_name: {model_name}")
+        if module_path:
+            context_bits.append(f"module_path: {module_path}")
+        context_text = "\n".join(context_bits) if context_bits else "（未提供上下文，需自行命名）"
+        return (
+            f"业务描述：\n{prompt}\n\n"
+            f"已有上下文：\n{context_text}\n\n"
+            "请直接输出 JSON，字段越贴近业务越好，字段数量控制在 5~12 个之间。"
+        )
+
+    def parse_schema_from_ai(self, content: str, defaults: Dict[str, str]) -> Dict[str, Any]:
+        cleaned = self.extract_json_payload(content)
+        try:
+            data = json.loads(cleaned)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f'AI 返回内容无法解析为 JSON：{exc}') from exc
+
+        if not isinstance(data, dict):
+            raise ValueError('AI 返回的根节点必须是对象')
+
+        schema = {
+            'app_label': data.get('app_label') or defaults.get('app_label'),
+            'model_name': data.get('model_name') or defaults.get('model_name'),
+            'module_path': data.get('module_path') or defaults.get('module_path'),
+            'fields': [],
+            'summary': data.get('summary', ''),
+        }
+
+        if not schema['app_label']:
+            raise ValueError('AI 未提供 app_label，且无默认值')
+        if not schema['model_name']:
+            raise ValueError('AI 未提供 model_name，且无默认值')
+        if not schema['module_path']:
+            schema['module_path'] = f"system/{slugify(schema['model_name']) or 'module'}"
+
+        raw_fields = data.get('fields') or []
+        if not isinstance(raw_fields, list) or not raw_fields:
+            raise ValueError('AI 必须返回至少一个字段')
+
+        schema['fields'] = [self.normalize_field(f) for f in raw_fields]
+        return schema
+
+    @staticmethod
+    def extract_json_payload(content: str) -> str:
+        text = content.strip()
+        if text.startswith('```'):
+            text = re.sub(r'^```(?:json)?', '', text, count=1, flags=re.IGNORECASE).strip()
+            if text.endswith('```'):
+                text = text[:-3]
+        text = text.strip()
+        if not text.startswith('{'):
+            idx = text.find('{')
+            if idx != -1:
+                text = text[idx:]
+        if not text.endswith('}'):
+            last = text.rfind('}')
+            if last != -1:
+                text = text[:last + 1]
+        return text
+
+    @staticmethod
+    def normalize_field(field: Dict[str, Any]) -> Dict[str, Any]:
+        if not isinstance(field, dict):
+            raise ValueError('fields 元素必须是对象')
+        name = field.get('name')
+        ftype = field.get('type')
+        if not name or not ftype:
+            raise ValueError('字段缺少 name 或 type')
+        normalized = {
+            'name': name,
+            'verbose_name': field.get('verbose_name') or name,
+            'type': ftype,
+            'required': bool(field.get('required', True)),
+            'unique': bool(field.get('unique', False)),
+        }
+        if 'default' in field:
+            normalized['default'] = field.get('default')
+        if ftype == 'CharField':
+            normalized['max_length'] = int(field.get('max_length') or 128)
+        if ftype == 'DecimalField':
+            normalized['max_digits'] = int(field.get('max_digits') or 10)
+            normalized['decimal_places'] = int(field.get('decimal_places') or 2)
+        if ftype == 'ForeignKey':
+            rel_app = field.get('related_app')
+            rel_model = field.get('related_model')
+            if not rel_app or not rel_model:
+                raise ValueError('ForeignKey 字段需提供 related_app 与 related_model')
+            normalized['related_app'] = rel_app
+            normalized['related_model'] = rel_model
+        return normalized
 
 
