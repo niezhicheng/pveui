@@ -6,7 +6,7 @@
 ![Django Version](https://img.shields.io/badge/django-5.2.7-green.svg)
 ![Vue Version](https://img.shields.io/badge/vue-3.5.22-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-
+## 作者wx:rz1433 qq: 1433711899
 ## ✨ 功能特性
 
 ### 🔐 权限管理
@@ -525,7 +525,7 @@ GET /api/audit/logs/{id}/
 
 ## 👥 作者
 
-- **Your Name** - *Initial work*
+- **小聂** - *Initial work*
 
 ## 🙏 致谢
 
