@@ -1,5 +1,8 @@
 APScheduler==3.11.1
 asgiref==3.10.0
+channels==4.0.0
+channels-redis==4.2.0
+daphne==4.1.0
 Django==5.2.8
 django-cors-headers==4.9.0
 django-filter==25.2

@@ -38,12 +38,14 @@ ALLOWED_HOSTS = ["*"]
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',  # ASGI服务器，需要放在最前面
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'channels',
     'rest_framework',
     'django_filters',
     'corsheaders',
@@ -53,6 +55,7 @@ INSTALLED_APPS = [
     'apps.curdexample.apps.CurdexampleConfig',
     'apps.audit.apps.AuditConfig',
     'apps.shop.apps.ShopConfig',
+    'apps.chat.apps.ChatConfig',
 ]
 
 MIDDLEWARE = [
@@ -86,6 +89,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'django_vue_adminx.wsgi.application'
+ASGI_APPLICATION = 'django_vue_adminx.asgi.application'
 
 
 # Database
@@ -232,3 +236,22 @@ AI_CODEGEN = {
     'TEMPERATURE': float(os.getenv('AI_CODEGEN_TEMPERATURE', '0.1')),
     'TIMEOUT': int(os.getenv('AI_CODEGEN_TIMEOUT', '30')),
 }
+
+# Channels 配置（WebSocket支持）
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',  # 开发环境使用内存层，生产环境建议使用Redis
+    }
+}
+
+# 如果配置了REDIS_URL，使用Redis作为通道层（生产环境推荐）
+REDIS_URL = os.getenv('REDIS_URL', '')
+if REDIS_URL:
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {
+                "hosts": [REDIS_URL],
+            },
+        },
+    }
