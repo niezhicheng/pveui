@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     'apps.chat.apps.ChatConfig',
     'apps.system.apps.SystemConfig',
     'apps.office.apps.OfficeConfig',
+    'apps.knowledge.apps.KnowledgeConfig',
 ]
 
 MIDDLEWARE = [

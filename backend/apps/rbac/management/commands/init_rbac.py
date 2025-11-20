@@ -65,6 +65,7 @@ class Command(BaseCommand):
         menu_monitor_root = self._get_or_create_menu('系统监控', 'monitor', '', 'icon-dashboard', None, 2)
         menu_tools = self._get_or_create_menu('系统工具', 'tools', '', 'icon-tool', None, 3)
         menu_office = self._get_or_create_menu('系统办公', 'office', '', 'icon-file', None, 4)
+        menu_knowledge_root = self._get_or_create_menu('知识库', 'knowledge', '', 'icon-book', None, 5)
 
         # 系统管理
         menu_user = self._get_or_create_menu('用户管理', 'user', 'system/user/index', 'icon-user', menu_system, 1)
@@ -87,6 +88,8 @@ class Command(BaseCommand):
 
         # 系统办公
         menu_document = self._get_or_create_menu('在线文档', 'document', 'office/document/index', 'icon-file', menu_office, 1)
+        # 知识库
+        menu_knowledge_article = self._get_or_create_menu('知识文章', 'knowledge-article', 'knowledge/article/index', 'icon-book', menu_knowledge_root, 1)
 
         self.stdout.write(self.style.SUCCESS('  ✓ 创建菜单: 系统管理 / 系统监控 / 系统工具 分组完成'))
 
@@ -165,6 +168,13 @@ class Command(BaseCommand):
         perms.append(self._get_or_create_permission('文档部分更新', 'document:partial_update', 'PATCH', r'/api/office/documents/\\d+/', menu_document))
         perms.append(self._get_or_create_permission('文档删除', 'document:delete', 'DELETE', r'/api/office/documents/\\d+/', menu_document))
         perms.append(self._get_or_create_permission('文档置顶', 'document:toggle_pin', 'POST', r'/api/office/documents/\\d+/toggle_pin/', menu_document))
+        # 知识库权限
+        perms.append(self._get_or_create_permission('知识库列表', 'knowledge:list', 'GET', '/api/knowledge/articles/', menu_knowledge_article))
+        perms.append(self._get_or_create_permission('知识库创建', 'knowledge:create', 'POST', '/api/knowledge/articles/', menu_knowledge_article))
+        perms.append(self._get_or_create_permission('知识库更新', 'knowledge:update', 'PUT', r'/api/knowledge/articles/\\d+/', menu_knowledge_article))
+        perms.append(self._get_or_create_permission('知识库部分更新', 'knowledge:partial_update', 'PATCH', r'/api/knowledge/articles/\\d+/', menu_knowledge_article))
+        perms.append(self._get_or_create_permission('知识库删除', 'knowledge:delete', 'DELETE', r'/api/knowledge/articles/\\d+/', menu_knowledge_article))
+        perms.append(self._get_or_create_permission('知识库分类查询', 'knowledge:categories', 'GET', '/api/knowledge/articles/categories/', menu_knowledge_article))
 
         self.stdout.write(self.style.SUCCESS(f'  ✓ 创建权限: {len(perms)} 个'))
 
@@ -174,7 +184,7 @@ class Command(BaseCommand):
         role_admin.permissions.set(perms)
         role_admin.menus.set([
             # 顶级
-            menu_dashboard, menu_system, menu_monitor_root, menu_tools, menu_office,
+            menu_dashboard, menu_system, menu_monitor_root, menu_tools, menu_office, menu_knowledge_root,
             # 系统管理
             menu_user, menu_role, menu_menu, menu_permission, menu_org, menu_system_setting,
             # 系统监控
@@ -183,6 +193,8 @@ class Command(BaseCommand):
             menu_codegen, menu_example,
             # 系统办公
             menu_document,
+            # 知识库
+            menu_knowledge_article,
         ])
         role_admin.custom_data_organizations.set([org_root, org_admin])
         
