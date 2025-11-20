@@ -36,6 +36,7 @@ urlpatterns = [
     path('api/audit/', include('apps.audit.urls')),
     path('api/shop/', include('apps.shop.urls')),
     path('api/chat/', include('apps.chat.urls')),
+    path('api/system/', include('apps.system.urls')),
 ]
 
 # 仅当定义了 MEDIA_ROOT 时才添加媒体文件映射（避免导入期 AttributeError）

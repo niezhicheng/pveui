@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     'apps.audit.apps.AuditConfig',
     'apps.shop.apps.ShopConfig',
     'apps.chat.apps.ChatConfig',
+    'apps.system.apps.SystemConfig',
 ]
 
 MIDDLEWARE = [

@@ -71,6 +71,8 @@ class Command(BaseCommand):
         menu_menu = self._get_or_create_menu('菜单管理', 'menu', 'system/menu/index', 'icon-menu', menu_system, 3)
         menu_permission = self._get_or_create_menu('权限管理', 'permission', 'system/permission/index', 'icon-safe', menu_system, 4)
         menu_org = self._get_or_create_menu('组织管理', 'organization', 'system/organization/index', 'icon-apps', menu_system, 5)
+        # 系统设置
+        menu_system_setting = self._get_or_create_menu('系统设置', 'system-setting', 'system/setting/index', 'icon-settings', menu_system, 6)
 
         # 系统监控
         menu_monitor = self._get_or_create_menu('监控概览', 'monitor-dashboard', 'system/monitor/index', 'icon-dashboard', menu_monitor_root, 1)
@@ -143,6 +145,15 @@ class Command(BaseCommand):
         perms.append(self._get_or_create_permission('示例更新', 'example:update', 'PUT', r'/api/curd/example/\\d+/', menu_example))
         perms.append(self._get_or_create_permission('示例删除', 'example:delete', 'DELETE', r'/api/curd/example/\\d+/', menu_example))
 
+        # 系统设置权限（归属系统管理）
+        perms.append(self._get_or_create_permission('系统设置列表', 'system_setting:list', 'GET', '/api/system/settings/', menu_system_setting))
+        perms.append(self._get_or_create_permission('系统设置创建', 'system_setting:create', 'POST', '/api/system/settings/', menu_system_setting))
+        perms.append(self._get_or_create_permission('系统设置更新', 'system_setting:update', 'PUT', r'/api/system/settings/\\d+/', menu_system_setting))
+        perms.append(self._get_or_create_permission('系统设置部分更新', 'system_setting:partial_update', 'PATCH', r'/api/system/settings/\\d+/', menu_system_setting))
+        perms.append(self._get_or_create_permission('系统设置删除', 'system_setting:delete', 'DELETE', r'/api/system/settings/\\d+/', menu_system_setting))
+        perms.append(self._get_or_create_permission('系统设置批量更新', 'system_setting:bulk_update', 'POST', '/api/system/settings/bulk_update/', menu_system_setting))
+        perms.append(self._get_or_create_permission('系统设置按键获取', 'system_setting:get_by_key', 'GET', '/api/system/settings/get_by_key/', menu_system_setting))
+
         self.stdout.write(self.style.SUCCESS(f'  ✓ 创建权限: {len(perms)} 个'))
 
         # 4. 创建角色
@@ -153,7 +164,7 @@ class Command(BaseCommand):
             # 顶级
             menu_dashboard, menu_system, menu_monitor_root, menu_tools,
             # 系统管理
-            menu_user, menu_role, menu_menu, menu_permission, menu_org,
+            menu_user, menu_role, menu_menu, menu_permission, menu_org, menu_system_setting,
             # 系统监控
             menu_monitor, menu_operation_log, menu_login_log, menu_tasks,
             # 系统工具
