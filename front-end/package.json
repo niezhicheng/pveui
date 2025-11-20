@@ -4,7 +4,8 @@
   "scripts": {
     "dev": "vite --host",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:widget": "vite build --config vite.widget.config.ts"
   },
   "dependencies": {
     "@wangeditor/editor": "^5.1.23",

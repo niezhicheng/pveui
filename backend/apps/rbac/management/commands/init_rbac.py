@@ -176,6 +176,7 @@ class Command(BaseCommand):
         perms.append(self._get_or_create_permission('客服会话列表', 'cs_session:list', 'GET', '/api/customer-service/sessions/', menu_support_workbench))
         perms.append(self._get_or_create_permission('客服会话分配', 'cs_session:assign', 'POST', r'/api/customer-service/sessions/\\d+/assign/', menu_support_workbench))
         perms.append(self._get_or_create_permission('客服会话关闭', 'cs_session:close', 'POST', r'/api/customer-service/sessions/\\d+/close/', menu_support_workbench))
+        perms.append(self._get_or_create_permission('客服发送消息', 'cs_session:send_message', 'POST', r'/api/customer-service/sessions/\\d+/send_message/', menu_support_workbench))
         perms.append(self._get_or_create_permission('客服消息列表', 'cs_message:list', 'GET', '/api/customer-service/messages/', menu_support_workbench))
         perms.append(self._get_or_create_permission('访客会话初始化', 'cs_guest:session_init', 'POST', '/api/customer-service/guest/session/', menu_support_workbench))
         perms.append(self._get_or_create_permission('访客消息发送', 'cs_guest:message_send', 'POST', '/api/customer-service/guest/messages/', menu_support_workbench))

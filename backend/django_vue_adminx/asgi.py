@@ -32,7 +32,10 @@ from channels.security.websocket import AllowedHostsOriginValidator
 django_asgi_app = get_asgi_application()
 
 # 导入WebSocket路由
-from apps.chat.routing import websocket_urlpatterns
+from apps.chat.routing import websocket_urlpatterns as chat_websocket_urlpatterns
+from apps.customer_service.routing import websocket_urlpatterns as cs_websocket_urlpatterns
+
+websocket_urlpatterns = chat_websocket_urlpatterns + cs_websocket_urlpatterns
 
 application = ProtocolTypeRouter({
     # HTTP请求使用Django ASGI应用

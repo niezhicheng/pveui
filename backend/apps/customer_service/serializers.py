@@ -82,3 +82,9 @@ class GuestMessagePublicSerializer(serializers.Serializer):
     message_type = serializers.ChoiceField(choices=['text', 'image', 'file', 'event'], default='text')
 
 
+class AgentMessageSendSerializer(serializers.Serializer):
+    content = serializers.CharField()
+    message_type = serializers.ChoiceField(choices=['text', 'image', 'file', 'event'], default='text')
+
+
+

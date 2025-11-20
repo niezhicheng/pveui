@@ -8,6 +8,8 @@ from rest_framework import viewsets, permissions, status, filters
 from rest_framework.response import Response
 from rest_framework.decorators import action, api_view, permission_classes
 from django_filters.rest_framework import DjangoFilterBackend
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 
 from apps.common.mixins import AuditOwnerPopulateMixin
 from apps.common.viewsets import ActionSerializerMixin
@@ -19,7 +21,23 @@ from .serializers import (
     GuestMessageCreateSerializer,
     GuestSessionInitSerializer,
     GuestMessagePublicSerializer,
+    AgentMessageSendSerializer,
 )
+
+
+def notify_session_message(session, message):
+    """向会话推送实时消息。"""
+    channel_layer = get_channel_layer()
+    if channel_layer is None:
+        return
+    data = GuestMessageSerializer(message).data
+    async_to_sync(channel_layer.group_send)(
+        f"cs_session_{session.session_id}",
+        {
+            "type": "session_message",
+            "message": data,
+        }
+    )
 
 
 class GuestSessionViewSet(AuditOwnerPopulateMixin, ActionSerializerMixin, viewsets.ModelViewSet):
@@ -55,6 +73,31 @@ class GuestSessionViewSet(AuditOwnerPopulateMixin, ActionSerializerMixin, viewse
         session.status = 'closed'
         session.save(update_fields=['status'])
         return Response({'detail': '会话已关闭'})
+
+    @action(detail=True, methods=['post'])
+    def send_message(self, request, pk=None):
+        """客服发送消息。"""
+        session = self.get_object()
+        serializer = AgentMessageSendSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        message = GuestMessage.objects.create(
+            session=session,
+            sender_type='agent',
+            sender=request.user,
+            content=data['content'],
+            message_type=data['message_type'],
+        )
+
+        session.last_message = data['content']
+        session.last_message_at = timezone.now()
+        session.status = 'active'
+        session.save(update_fields=['last_message', 'last_message_at', 'status'])
+
+        notify_session_message(session, message)
+
+        return Response(GuestMessageSerializer(message).data, status=status.HTTP_201_CREATED)
 
 
 class GuestMessageViewSet(AuditOwnerPopulateMixin, viewsets.ReadOnlyModelViewSet):
@@ -119,6 +162,8 @@ def guest_message_send(request):
     session.last_message_at = timezone.now()
     session.status = 'active'
     session.save(update_fields=['last_message', 'last_message_at', 'status'])
+
+    notify_session_message(session, message)
 
     return Response(GuestMessageSerializer(message).data, status=status.HTTP_201_CREATED)
 
