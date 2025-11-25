@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     'apps.office.apps.OfficeConfig',
     'apps.knowledge.apps.KnowledgeConfig',
     'apps.customer_service.apps.CustomerServiceConfig',
+    'apps.pve.apps.PveConfig',
 ]
 
 MIDDLEWARE = [

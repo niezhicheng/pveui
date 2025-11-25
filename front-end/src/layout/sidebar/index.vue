@@ -3,7 +3,7 @@
     v-if="menuTree.length > 0"
     :style="{ width: '220px', height: '100%', flexShrink: 0 }"
     :default-selected-keys="[openedMenu]"
-    :auto-open="true"
+    :auto-open="false"
     @menu-item-click="handleMenuClick"
     show-collapse-button
   >

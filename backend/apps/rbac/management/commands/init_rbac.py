@@ -67,6 +67,7 @@ class Command(BaseCommand):
         menu_office = self._get_or_create_menu('系统办公', 'office', '', 'icon-file', None, 4)
         menu_support = self._get_or_create_menu('客服中心', 'support', '', 'icon-customer-service', None, 5)
         menu_knowledge_root = self._get_or_create_menu('知识库', 'knowledge', '', 'icon-book', None, 6)
+        menu_pve = self._get_or_create_menu('PVE管理', 'pve', '', 'icon-server', None, 7)
         menu_tools_sheet = self._get_or_create_menu('在线表格', 'spreadsheet', 'tools/spreadsheet/index', 'icon-apps', menu_tools, 3)
 
         # 系统管理
@@ -94,8 +95,12 @@ class Command(BaseCommand):
         menu_support_workbench = self._get_or_create_menu('客服工作台', 'support-workbench', 'support/workbench/index', 'icon-service', menu_support, 1)
         # 知识库
         menu_knowledge_article = self._get_or_create_menu('知识文章', 'knowledge-article', 'knowledge/article/index', 'icon-book', menu_knowledge_root, 1)
+        
+        # PVE管理
+        menu_pve_server = self._get_or_create_menu('PVE服务器管理', 'pve-server', 'pve/server/index', 'icon-server', menu_pve, 1)
+        menu_pve_vm = self._get_or_create_menu('虚拟机管理', 'pve-vm', 'pve/vm/index', 'icon-desktop', menu_pve, 2)
 
-        self.stdout.write(self.style.SUCCESS('  ✓ 创建菜单: 系统管理 / 系统监控 / 系统工具 分组完成'))
+        self.stdout.write(self.style.SUCCESS('  ✓ 创建菜单: 系统管理 / 系统监控 / 系统工具 / PVE管理 分组完成'))
 
         # 3. 创建权限
         self.stdout.write('创建权限...')
@@ -190,6 +195,28 @@ class Command(BaseCommand):
         perms.append(self._get_or_create_permission('知识库删除', 'knowledge:delete', 'DELETE', r'/api/knowledge/articles/\\d+/', menu_knowledge_article))
         perms.append(self._get_or_create_permission('知识库分类查询', 'knowledge:categories', 'GET', '/api/knowledge/articles/categories/', menu_knowledge_article))
 
+        # PVE服务器管理权限
+        perms.append(self._get_or_create_permission('PVE服务器列表', 'pve_server:list', 'GET', '/api/pve/servers/', menu_pve_server))
+        perms.append(self._get_or_create_permission('PVE服务器创建', 'pve_server:create', 'POST', '/api/pve/servers/', menu_pve_server))
+        perms.append(self._get_or_create_permission('PVE服务器更新', 'pve_server:update', 'PUT', r'/api/pve/servers/\\d+/', menu_pve_server))
+        perms.append(self._get_or_create_permission('PVE服务器部分更新', 'pve_server:partial_update', 'PATCH', r'/api/pve/servers/\\d+/', menu_pve_server))
+        perms.append(self._get_or_create_permission('PVE服务器删除', 'pve_server:delete', 'DELETE', r'/api/pve/servers/\\d+/', menu_pve_server))
+        perms.append(self._get_or_create_permission('PVE服务器查看', 'pve_server:retrieve', 'GET', r'/api/pve/servers/\\d+/', menu_pve_server))
+        perms.append(self._get_or_create_permission('PVE服务器测试连接', 'pve_server:test_connection', 'POST', r'/api/pve/servers/\\d+/test_connection/', menu_pve_server))
+        perms.append(self._get_or_create_permission('PVE服务器获取节点', 'pve_server:nodes', 'GET', r'/api/pve/servers/\\d+/nodes/', menu_pve_server))
+        perms.append(self._get_or_create_permission('PVE服务器获取节点虚拟机', 'pve_server:node_vms', 'GET', r'/api/pve/servers/\\d+/nodes/[^/]+/vms/', menu_pve_server))
+        perms.append(self._get_or_create_permission('PVE服务器获取节点存储', 'pve_server:node_storage', 'GET', r'/api/pve/servers/\\d+/nodes/[^/]+/storage/', menu_pve_server))
+        
+        # 虚拟机管理权限
+        perms.append(self._get_or_create_permission('虚拟机列表', 'pve_vm:list', 'GET', '/api/pve/virtual-machines/', menu_pve_vm))
+        perms.append(self._get_or_create_permission('虚拟机创建', 'pve_vm:create_vm', 'POST', '/api/pve/virtual-machines/create_vm/', menu_pve_vm))
+        perms.append(self._get_or_create_permission('虚拟机查看', 'pve_vm:retrieve', 'GET', r'/api/pve/virtual-machines/\\d+/', menu_pve_vm))
+        perms.append(self._get_or_create_permission('虚拟机更新', 'pve_vm:update', 'PUT', r'/api/pve/virtual-machines/\\d+/', menu_pve_vm))
+        perms.append(self._get_or_create_permission('虚拟机部分更新', 'pve_vm:partial_update', 'PATCH', r'/api/pve/virtual-machines/\\d+/', menu_pve_vm))
+        perms.append(self._get_or_create_permission('虚拟机删除', 'pve_vm:delete', 'DELETE', r'/api/pve/virtual-machines/\\d+/', menu_pve_vm))
+        perms.append(self._get_or_create_permission('虚拟机操作', 'pve_vm:vm_action', 'POST', r'/api/pve/virtual-machines/\\d+/vm_action/', menu_pve_vm))
+        perms.append(self._get_or_create_permission('虚拟机同步状态', 'pve_vm:sync_status', 'GET', r'/api/pve/virtual-machines/\\d+/sync_status/', menu_pve_vm))
+
         self.stdout.write(self.style.SUCCESS(f'  ✓ 创建权限: {len(perms)} 个'))
 
         # 4. 创建角色
@@ -198,7 +225,7 @@ class Command(BaseCommand):
         role_admin.permissions.set(perms)
         role_admin.menus.set([
             # 顶级
-            menu_dashboard, menu_system, menu_monitor_root, menu_tools, menu_office, menu_knowledge_root,
+            menu_dashboard, menu_system, menu_monitor_root, menu_tools, menu_office, menu_knowledge_root, menu_pve,
             # 系统管理
             menu_user, menu_role, menu_menu, menu_permission, menu_org, menu_system_setting,
             # 系统监控
@@ -211,6 +238,8 @@ class Command(BaseCommand):
             menu_support_workbench,
             # 知识库
             menu_knowledge_article,
+            # PVE管理
+            menu_pve_server, menu_pve_vm,
         ])
         role_admin.custom_data_organizations.set([org_root, org_admin])
         
