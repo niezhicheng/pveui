@@ -573,7 +573,7 @@ const initConsole = async () => {
     })
 
     // 配置 RFB
-    // scaleViewport: true 表示本地缩放，canvas 会缩放以适应容器
+    // scaleViewport: true 表示本地缩放，canvas 会缩放以适应容器，保持宽高比
     // resizeSession: false 表示不调整远程会话大小，只进行本地缩放
     rfb.value.scaleViewport = true
     rfb.value.resizeSession = false
@@ -586,7 +586,7 @@ const initConsole = async () => {
       consoleLoading.value = false
       consoleError.value = ''
       console.log('noVNC 连接成功')
-      // 连接成功后，延迟触发一次 resize 以确保正确布局和居中
+      // 连接成功后，触发一次 resize 以确保正确布局和居中
       setTimeout(() => {
         if (rfb.value && container) {
           // 触发容器 resize 事件，让 noVNC 重新计算布局
@@ -1462,28 +1462,33 @@ watch(
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0;
+  margin: 0 auto;
   padding: 0;
+  text-align: center;
 }
 
-/* noVNC 创建的 _screen div - 确保填满容器 */
+/* noVNC 创建的 _screen div - 确保居中显示 */
 .novnc-container > div {
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
   width: 100% !important;
   height: 100% !important;
-  margin: 0 !important;
+  margin: 0 auto !important;
   padding: 0 !important;
   position: relative !important;
-  overflow: hidden !important;
+  overflow: auto !important;
 }
 
-/* noVNC 创建的 canvas - 当 scaleViewport=true 时，noVNC 会自动处理缩放和居中 */
+/* noVNC 创建的 canvas - 当 scaleViewport=true 时，canvas 会按比例缩放，需要居中显示 */
 .novnc-container canvas {
   display: block !important;
-  /* 不强制宽高，让 noVNC 的 scaleViewport 自动处理 */
   margin: 0 auto !important;
+  /* 不强制宽高，让 noVNC 的 scaleViewport 自动处理缩放，保持宽高比 */
+  max-width: 100% !important;
+  max-height: 100% !important;
+  /* 确保 canvas 在容器中水平和垂直居中 */
+  position: relative !important;
 }
 
 .pve-console-iframe {
