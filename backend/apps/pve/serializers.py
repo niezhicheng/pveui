@@ -141,6 +141,16 @@ class VirtualMachineHardwareUpdateSerializer(serializers.Serializer):
     )
 
 
+class VMOptionsUpdateSerializer(serializers.Serializer):
+    """虚拟机选项更新序列化器。"""
+    
+    params = serializers.DictField(
+        child=serializers.CharField(allow_blank=True),
+        allow_empty=False,
+        help_text='需要更新的选项配置参数（键值对）'
+    )
+
+
 class VMBackupCreateSerializer(serializers.Serializer):
     """创建虚拟机备份序列化器。"""
     
@@ -173,3 +183,22 @@ class VMSnapshotActionSerializer(serializers.Serializer):
     """快照操作序列化器（删除/回滚）。"""
     
     name = serializers.CharField(max_length=64, help_text='快照名称')
+
+
+class VMCloneSerializer(serializers.Serializer):
+    """克隆虚拟机序列化器。"""
+    
+    new_vmid = serializers.IntegerField(required=False, allow_null=True, help_text='新虚拟机ID（留空自动获取）')
+    name = serializers.CharField(max_length=255, required=False, allow_blank=True, help_text='新虚拟机名称')
+    full = serializers.BooleanField(default=False, required=False, help_text='是否完整克隆（否则为链接克隆）')
+    target_node = serializers.CharField(required=False, allow_blank=True, help_text='目标节点名称（可选）')
+    storage = serializers.CharField(required=False, allow_blank=True, help_text='目标存储（可选）')
+    disk_format = serializers.ChoiceField(
+        choices=['raw', 'qcow2', 'vmdk'],
+        required=False,
+        allow_blank=True,
+        help_text='磁盘格式（raw/qcow2/vmdk，可选）'
+    )
+    description = serializers.CharField(required=False, allow_blank=True, help_text='新虚拟机描述（可选）')
+    pool = serializers.CharField(required=False, allow_blank=True, help_text='目标资源池（可选）')
+    snapname = serializers.CharField(required=False, allow_blank=True, help_text='快照名称（可选，默认使用当前状态）')

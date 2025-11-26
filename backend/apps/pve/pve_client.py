@@ -184,8 +184,20 @@ class PVEAPIClient:
         result = self._request('POST', f'/nodes/{node}/qemu', params=config)
         return result
     
-    def clone_vm(self, node: str, newid: int, source_vmid: int, 
-                 name: str = None, full: bool = False) -> Dict:
+    def clone_vm(
+        self,
+        node: str,
+        newid: int,
+        source_vmid: int,
+        name: str = None,
+        full: bool = False,
+        target: str = None,
+        storage: str = None,
+        disk_format: str = None,
+        description: str = None,
+        pool: str = None,
+        snapname: str = None
+    ) -> Dict:
         """
         克隆虚拟机。
         
@@ -200,11 +212,24 @@ class PVEAPIClient:
             UPID（任务ID）
         """
         params = {
-            'newid': newid,
-            'full': 1 if full else 0
+            'newid': newid
         }
+        if full is not None:
+            params['full'] = 1 if full else 0
         if name:
             params['name'] = name
+        if target:
+            params['target'] = target
+        if storage:
+            params['storage'] = storage
+        if disk_format:
+            params['format'] = disk_format
+        if description:
+            params['description'] = description
+        if pool:
+            params['pool'] = pool
+        if snapname:
+            params['snapname'] = snapname
         
         result = self._request('POST', f'/nodes/{node}/qemu/{source_vmid}/clone', params=params)
         return result
@@ -331,7 +356,13 @@ class PVEAPIClient:
             params['notes'] = notes
         return self._request('POST', f'/nodes/{node}/vzdump', params=params)
 
-    def list_tasks(self, node: str, vmid: int = None, limit: int = 100) -> List[Dict]:
+    def list_tasks(
+        self,
+        node: str,
+        vmid: int = None,
+        limit: int = 100,
+        statusfilter: str = 'all'
+    ) -> List[Dict]:
         """
         获取节点上的任务列表，可选过滤特定虚拟机。
         
@@ -343,6 +374,8 @@ class PVEAPIClient:
         params = {
             'limit': limit
         }
+        if statusfilter and statusfilter.lower() != 'all':
+            params['statusfilter'] = statusfilter
         if vmid:
             params['vmid'] = vmid
         result = self._request('GET', f'/nodes/{node}/tasks', params=params)

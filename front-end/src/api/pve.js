@@ -205,6 +205,21 @@ export function updateVirtualMachineHardware(id, data) {
   })
 }
 
+export function getVMOptions(id) {
+  return request({
+    url: `/api/pve/virtual-machines/${id}/options/`,
+    method: 'get'
+  })
+}
+
+export function updateVMOptions(id, data) {
+  return request({
+    url: `/api/pve/virtual-machines/${id}/options/`,
+    method: 'post',
+    data
+  })
+}
+
 /**
  * 创建虚拟机控制台会话 (noVNC)
  */
@@ -257,6 +272,14 @@ export function rollbackVMSnapshot(id, data) {
 export function deleteVMSnapshot(id, data) {
   return request({
     url: `/api/pve/virtual-machines/${id}/delete_snapshot/`,
+    method: 'post',
+    data
+  })
+}
+
+export function cloneVirtualMachine(id, data) {
+  return request({
+    url: `/api/pve/virtual-machines/${id}/clone/`,
     method: 'post',
     data
   })

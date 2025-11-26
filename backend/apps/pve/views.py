@@ -35,9 +35,11 @@ from .serializers import (
     VirtualMachineCreateSerializer,
     VirtualMachineActionSerializer,
     VirtualMachineHardwareUpdateSerializer,
+    VMOptionsUpdateSerializer,
     VMBackupCreateSerializer,
     VMSnapshotCreateSerializer,
     VMSnapshotActionSerializer,
+    VMCloneSerializer,
 )
 from .pve_client import PVEAPIClient
 from .consumers import SESSION_CACHE_PREFIX
@@ -481,6 +483,93 @@ class VirtualMachineViewSet(AuditOwnerPopulateMixin, ActionSerializerMixin, view
                 'detail': f'更新虚拟机硬件配置失败: {str(e)}'
             }, status=status.HTTP_400_BAD_REQUEST)
     
+    @action(detail=True, methods=['get', 'post'])
+    def options(self, request, pk=None):
+        """获取或更新虚拟机选项配置。"""
+        vm = self.get_object()
+        try:
+            server = vm.server
+            client = PVEAPIClient(
+                host=server.host,
+                port=server.port,
+                token_id=server.token_id,
+                token_secret=server.token_secret,
+                verify_ssl=server.verify_ssl
+            )
+            if request.method.lower() == 'get':
+                config = client.get_vm_config(vm.node, vm.vmid)
+                vm.pve_config = config
+                vm.save(update_fields=['pve_config'])
+                return Response({
+                    'config': config
+                })
+            serializer = VMOptionsUpdateSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            params = serializer.validated_data.get('params', {})
+            if not params:
+                return Response({
+                    'detail': '缺少需要更新的选项参数'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            result = client.update_vm_config(vm.node, vm.vmid, params)
+            config = client.get_vm_config(vm.node, vm.vmid)
+            vm.pve_config = config
+            vm.save(update_fields=['pve_config'])
+            return Response({
+                'success': True,
+                'message': '选项配置更新已提交',
+                'upid': result,
+                'config': config
+            })
+        except Exception as e:
+            logger.exception('处理虚拟机选项请求失败')
+            return Response({
+                'detail': f'处理虚拟机选项请求失败: {str(e)}'
+            }, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=True, methods=['post'])
+    def clone(self, request, pk=None):
+        """克隆虚拟机。"""
+        vm = self.get_object()
+        serializer = VMCloneSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        try:
+            server = vm.server
+            client = PVEAPIClient(
+                host=server.host,
+                port=server.port,
+                token_id=server.token_id,
+                token_secret=server.token_secret,
+                verify_ssl=server.verify_ssl
+            )
+            new_vmid = data.get('new_vmid')
+            if not new_vmid:
+                new_vmid = client.get_next_vmid()
+            clone_result = client.clone_vm(
+                vm.node,
+                newid=new_vmid,
+                source_vmid=vm.vmid,
+                name=data.get('name'),
+                full=data.get('full', False),
+                target=data.get('target_node'),
+                storage=data.get('storage'),
+                disk_format=data.get('disk_format'),
+                description=data.get('description'),
+                pool=data.get('pool'),
+                snapname=data.get('snapname')
+            )
+            return Response({
+                'success': True,
+                'message': '克隆任务已提交',
+                'upid': clone_result,
+                'new_vmid': new_vmid
+            })
+        except Exception as e:
+            logger.exception('克隆虚拟机失败')
+            return Response({
+                'detail': f'克隆虚拟机失败: {str(e)}'
+            }, status=status.HTTP_400_BAD_REQUEST)
+    
     @action(detail=True, methods=['post'], url_path='console-session')
     def console_session(self, request, pk=None):
         """创建noVNC会话，返回WebSocket连接信息。"""
@@ -806,7 +895,15 @@ class VirtualMachineViewSet(AuditOwnerPopulateMixin, ActionSerializerMixin, view
                 verify_ssl=server.verify_ssl
             )
             limit = int(request.query_params.get('limit', 100))
-            tasks = client.list_tasks(vm.node, vmid=vm.vmid, limit=limit)
+            statusfilter = request.query_params.get('task_status')
+            if not statusfilter or statusfilter.lower() == 'all':
+                statusfilter = None
+            tasks = client.list_tasks(
+                vm.node,
+                vmid=vm.vmid,
+                limit=limit,
+                statusfilter=statusfilter
+            )
             
             # 过滤与当前虚拟机相关的任务（再次确认）
             filtered_tasks = []

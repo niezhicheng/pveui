@@ -76,7 +76,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import dayjs from 'dayjs'
 import { Message } from '@arco-design/web-vue'
 import { getVMTasks, getVMTaskLog } from '@/api/pve'
@@ -98,6 +98,8 @@ const logVisible = ref(false)
 const logLoading = ref(false)
 const logContent = ref('')
 const currentTask = ref(null)
+const refreshTimer = ref(null)
+const REFRESH_INTERVAL = 5000
 
 const taskTypeMap = {
   qmstart: '启动',
@@ -168,9 +170,12 @@ const loadData = async () => {
     tasks.value = []
     return
   }
+  if (loading.value) {
+    return
+  }
   loading.value = true
   try {
-    const res = await getVMTasks(props.vmId, { limit: 100 })
+    const res = await getVMTasks(props.vmId, { limit: 100, task_status: 'all' })
     tasks.value = res?.tasks || []
   } catch (error) {
     Message.error('获取任务列表失败：' + (error.message || '未知错误'))
@@ -204,11 +209,28 @@ const handleViewLog = async (task) => {
   }
 }
 
+const startAutoRefresh = () => {
+  stopAutoRefresh()
+  refreshTimer.value = setInterval(() => {
+    loadData()
+  }, REFRESH_INTERVAL)
+}
+
+const stopAutoRefresh = () => {
+  if (refreshTimer.value) {
+    clearInterval(refreshTimer.value)
+    refreshTimer.value = null
+  }
+}
+
 watch(
   () => props.vmId,
   (val, oldVal) => {
     if (val && val !== oldVal) {
       loadData()
+      startAutoRefresh()
+    } else if (!val) {
+      stopAutoRefresh()
     }
   }
 )
@@ -216,7 +238,12 @@ watch(
 onMounted(() => {
   if (props.vmId) {
     loadData()
+    startAutoRefresh()
   }
+})
+
+onUnmounted(() => {
+  stopAutoRefresh()
 })
 </script>
 

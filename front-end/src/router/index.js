@@ -41,6 +41,22 @@ export const constantRoutes = [
       }
     ]
   },
+  {
+    path: '/pve/vm/detail',
+    component: Layout,
+    hidden: true,
+    children: [
+      {
+        path: ':id',
+        name: 'PVEVirtualMachineDetail',
+        component: () => import('@/views/pve/vm/detail.vue'),
+        meta: {
+          title: '虚拟机详情',
+          activeMenu: '/pve/vm'
+        }
+      }
+    ]
+  },
 ]
 
 // 动态路由（从后端菜单生成）

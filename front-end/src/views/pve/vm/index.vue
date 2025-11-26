@@ -427,19 +427,14 @@
       </template>
     </a-modal>
 
-    <virtual-machine-detail-modal
-      v-model:visible="detailVisible"
-      :vm-id="detailVmId"
-      :fallback-record="detailFallbackRecord"
-    />
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { Message, Modal } from '@arco-design/web-vue'
 import { IconPlus, IconDown } from '@arco-design/web-vue/es/icon'
-import VirtualMachineDetailModal from './components/VirtualMachineDetailModal.vue'
 import {
   getPVEServers,
   getPVEServerNodes,
@@ -452,6 +447,8 @@ import {
   vmAction,
   syncVMStatus
 } from '@/api/pve'
+
+const VM_DETAIL_ROUTE_NAME = 'PVEVirtualMachineDetail'
 
 const columns = [
   { title: 'ID', dataIndex: 'id', width: 80 },
@@ -468,15 +465,14 @@ const columns = [
   { title: '操作', slotName: 'actions', width: 120, fixed: 'right' }
 ]
 
+const router = useRouter()
+
 const loading = ref(false)
 const searchText = ref('')
 const selectedServer = ref(null)
 const tableData = ref([])
 const servers = ref([])
 const createFormVisible = ref(false)
-const detailVisible = ref(false)
-const detailVmId = ref(null)
-const detailFallbackRecord = ref(null)
 const nodesLoading = ref(false)
 const storageLoading = ref(false)
 const isoLoading = ref(false)
@@ -913,9 +909,11 @@ const handleSyncStatus = async (record) => {
 }
 
 const handleViewDetail = (record) => {
-  detailFallbackRecord.value = record
-  detailVmId.value = record.id
-  detailVisible.value = true
+  if (!record || !record.id) return
+  router.push({
+    name: VM_DETAIL_ROUTE_NAME,
+    params: { id: record.id }
+  })
 }
 
 const handleDelete = (record) => {
