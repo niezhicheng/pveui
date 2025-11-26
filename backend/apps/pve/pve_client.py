@@ -131,6 +131,36 @@ class PVEAPIClient:
         result = self._request('GET', f'/nodes/{node}/status')
         return result if isinstance(result, dict) else {}
     
+    def get_node_rrddata(
+        self,
+        node: str,
+        timeframe: str = 'hour',
+        cf: str = 'AVERAGE',
+        datasource: Optional[str] = None
+    ) -> List[Dict]:
+        """
+        获取节点的RRD监控数据。
+        
+        Args:
+            node: 节点名称
+            timeframe: 时间范围（hour、day、week、month、year）
+            cf: 聚合方式（AVERAGE、MAX、MIN）
+            datasource: 可选的数据源（如cpu、mem等），如果为空则返回全部
+        """
+        params = {
+            'timeframe': timeframe or 'hour'
+        }
+        if cf:
+            params['cf'] = cf
+        if datasource:
+            params['ds'] = datasource
+        result = self._request('GET', f'/nodes/{node}/rrddata', params=params)
+        if isinstance(result, list):
+            return result
+        elif isinstance(result, dict):
+            return [result]
+        return []
+    
     def get_vms(self, node: str) -> List[Dict]:
         """获取节点上的所有虚拟机。"""
         result = self._request('GET', f'/nodes/{node}/qemu')

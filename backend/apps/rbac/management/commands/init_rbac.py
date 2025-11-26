@@ -100,6 +100,7 @@ class Command(BaseCommand):
         menu_pve_server = self._get_or_create_menu('PVE服务器管理', 'pve-server', 'pve/server/index', 'icon-computer', menu_pve, 1)
         menu_pve_vm = self._get_or_create_menu('虚拟机管理', 'pve-vm', 'pve/vm/index', 'icon-desktop', menu_pve, 2)
         menu_pve_storage = self._get_or_create_menu('存储管理', 'pve-storage', 'pve/storage/index', 'icon-storage', menu_pve, 3)
+        menu_pve_node_monitor = self._get_or_create_menu('PVE节点监控', 'pve-node-monitor', 'pve/node-monitor/index', 'icon-bar-chart', menu_pve, 4)
 
         self.stdout.write(self.style.SUCCESS('  ✓ 创建菜单: 系统管理 / 系统监控 / 系统工具 / PVE管理 分组完成'))
 
@@ -210,6 +211,7 @@ class Command(BaseCommand):
         perms.append(self._get_or_create_permission('PVE服务器存储内容', 'pve_server:storage_content', 'GET', r'/api/pve/servers/\\d+/nodes/[^/]+/storage/[^/]+/content/', menu_pve_server))
         perms.append(self._get_or_create_permission('PVE服务器存储上传', 'pve_server:storage_upload', 'POST', r'/api/pve/servers/\\d+/nodes/[^/]+/storage/[^/]+/upload/', menu_pve_server))
         perms.append(self._get_or_create_permission('PVE服务器存储ISO列表', 'pve_server:storage_iso', 'GET', r'/api/pve/servers/\\d+/nodes/[^/]+/storage/[^/]+/iso/', menu_pve_server))
+        perms.append(self._get_or_create_permission('PVE节点监控查看', 'pve_node:monitor', 'GET', r'/api/pve/servers/\\d+/nodes/[^/]+/monitor/', menu_pve_node_monitor))
         
         # PVE 存储管理权限
         perms.append(self._get_or_create_permission('PVE存储服务器列表', 'pve_storage:servers', 'GET', '/api/pve/servers/', menu_pve_storage))
@@ -251,7 +253,7 @@ class Command(BaseCommand):
             # 知识库
             menu_knowledge_article,
             # PVE管理
-            menu_pve_server, menu_pve_vm, menu_pve_storage,
+            menu_pve_server, menu_pve_vm, menu_pve_storage, menu_pve_node_monitor,
         ])
         role_admin.custom_data_organizations.set([org_root, org_admin])
         

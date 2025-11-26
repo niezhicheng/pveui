@@ -138,6 +138,17 @@ export function getNodeNetwork(serverId, node) {
 }
 
 /**
+ * 获取节点监控数据
+ */
+export function getNodeMonitor(serverId, node, params) {
+  return request({
+    url: `/api/pve/servers/${serverId}/nodes/${node}/monitor/`,
+    method: 'get',
+    params
+  })
+}
+
+/**
  * 获取下一个可用的VMID
  */
 export function getNextVMID(serverId) {

@@ -253,6 +253,50 @@ class PVEServerViewSet(AuditOwnerPopulateMixin, ActionSerializerMixin, viewsets.
                 'detail': f'获取网络接口失败: {str(e)}'
             }, status=status.HTTP_400_BAD_REQUEST)
     
+    @action(detail=True, methods=['get'], url_path='nodes/(?P<node>[^/.]+)/monitor')
+    def node_monitor(self, request, pk=None, node=None):
+        """获取节点监控数据（状态 + RRD 曲线）。"""
+        server = self.get_object()
+        timeframe = (request.query_params.get('timeframe') or 'hour').lower()
+        cf = (request.query_params.get('cf') or 'AVERAGE').upper()
+        datasource = request.query_params.get('ds')
+        
+        allowed_timeframes = {'hour', 'day', 'week', 'month', 'year'}
+        if timeframe not in allowed_timeframes:
+            timeframe = 'hour'
+        allowed_cf = {'AVERAGE', 'MAX', 'MIN'}
+        if cf not in allowed_cf:
+            cf = 'AVERAGE'
+        
+        try:
+            client = PVEAPIClient(
+                host=server.host,
+                port=server.port,
+                token_id=server.token_id,
+                token_secret=server.token_secret,
+                verify_ssl=server.verify_ssl
+            )
+            
+            status_data = client.get_node_status(node)
+            rrd_raw = client.get_node_rrddata(node, timeframe=timeframe, cf=cf, datasource=datasource)
+            metrics = self._normalize_rrd_metrics(rrd_raw)
+            latest_metric = metrics[-1] if metrics else {}
+            summary = self._build_node_summary(status_data, latest_metric)
+            alerts = self._build_node_alerts(summary, status_data, latest_metric)
+            
+            return Response({
+                'status': status_data,
+                'summary': summary,
+                'metrics': metrics,
+                'alerts': alerts,
+                'timeframe': timeframe,
+                'cf': cf
+            })
+        except Exception as e:
+            return Response({
+                'detail': f'获取节点监控数据失败: {str(e)}'
+            }, status=status.HTTP_400_BAD_REQUEST)
+    
     @action(detail=True, methods=['get'], url_path='next-vmid')
     def next_vmid(self, request, pk=None):
         """获取下一个可用的VMID。"""
@@ -274,6 +318,170 @@ class PVEServerViewSet(AuditOwnerPopulateMixin, ActionSerializerMixin, viewsets.
             return Response({
                 'detail': f'获取下一个VMID失败: {str(e)}'
             }, status=status.HTTP_400_BAD_REQUEST)
+    
+    def _normalize_rrd_metrics(self, metrics):
+        """整理RRD返回的数据，统一时间戳与数值类型。"""
+        normalized = []
+        if not isinstance(metrics, list):
+            return normalized
+        
+        numeric_fields = {
+            'cpu', 'iowait', 'mem', 'maxmem', 'disk', 'maxdisk',
+            'netin', 'netout', 'loadavg', 'maxcpu', 'maxnet',
+            'swap', 'maxswap'
+        }
+        for item in metrics:
+            if not isinstance(item, dict):
+                continue
+            record = {}
+            try:
+                timestamp = item.get('time')
+                if timestamp is not None:
+                    record['time'] = int(float(timestamp)) * 1000
+            except (ValueError, TypeError):
+                continue
+            
+            for field in numeric_fields:
+                if field not in item or item[field] is None:
+                    continue
+                value = item[field]
+                try:
+                    if field in {'mem', 'maxmem', 'disk', 'maxdisk', 'netin', 'netout', 'maxnet', 'swap', 'maxswap'}:
+                        record[field] = int(float(value))
+                    else:
+                        record[field] = float(value)
+                except (ValueError, TypeError):
+                    continue
+            if record:
+                normalized.append(record)
+        
+        normalized.sort(key=lambda x: x.get('time', 0))
+        return normalized
+    
+    def _build_node_summary(self, status_data, latest_metric):
+        """根据节点状态与最新RRD数据构建汇总信息。"""
+        status_data = status_data or {}
+        latest_metric = latest_metric or {}
+        
+        def safe_percent(used, total):
+            try:
+                used = float(used or 0)
+                total = float(total or 0)
+                if total <= 0:
+                    return 0
+                return round((used / total) * 100, 2)
+            except (ValueError, TypeError, ZeroDivisionError):
+                return 0
+        
+        cpu_ratio = status_data.get('cpu')
+        if cpu_ratio is None:
+            cpu_ratio = latest_metric.get('cpu')
+        try:
+            cpu_percent = round(float(cpu_ratio or 0) * 100, 2)
+        except (ValueError, TypeError):
+            cpu_percent = 0
+        
+        max_cpu = status_data.get('maxcpu') or latest_metric.get('maxcpu') or 0
+        mem_total = status_data.get('maxmem') or latest_metric.get('maxmem') or 0
+        mem_used = status_data.get('mem') or latest_metric.get('mem') or 0
+        rootfs = status_data.get('rootfs') or {}
+        disk_total = (
+            rootfs.get('total')
+            or status_data.get('maxdisk')
+            or latest_metric.get('maxdisk')
+            or 0
+        )
+        disk_used = (
+            rootfs.get('used')
+            or status_data.get('disk')
+            or latest_metric.get('disk')
+            or 0
+        )
+        net_in = latest_metric.get('netin') or 0
+        net_out = latest_metric.get('netout') or 0
+        
+        summary = {
+            'cpu': {
+                'percent': cpu_percent,
+                'cores': int(max_cpu) if max_cpu else 0,
+                'loadavg': status_data.get('loadavg') or latest_metric.get('loadavg')
+            },
+            'memory': {
+                'total': int(mem_total),
+                'used': int(mem_used),
+                'percent': safe_percent(mem_used, mem_total)
+            },
+            'storage': {
+                'total': int(disk_total),
+                'used': int(disk_used),
+                'percent': safe_percent(disk_used, disk_total)
+            },
+            'network': {
+                'in': int(net_in),
+                'out': int(net_out)
+            },
+            'uptime': status_data.get('uptime') or 0,
+            'node': status_data.get('node'),
+            'status': status_data.get('status'),
+            'pveversion': status_data.get('pveversion'),
+            'last_update': latest_metric.get('time')
+        }
+        return summary
+    
+    def _build_node_alerts(self, summary, status_data, latest_metric):
+        """根据汇总信息生成健康告警。"""
+        summary = summary or {}
+        status_data = status_data or {}
+        alerts = []
+        
+        status_text = (status_data.get('status') or '').lower()
+        if status_text and status_text not in {'online', 'running'}:
+            alerts.append({
+                'level': 'danger',
+                'message': f'节点状态异常：{status_data.get("status") or "未知"}'
+            })
+        
+        level = status_data.get('level')
+        if level and str(level).lower() in {'warning', 'alert', 'critical'}:
+            alerts.append({
+                'level': 'warning' if str(level).lower() == 'warning' else 'danger',
+                'message': f'PVE上报节点等级：{level}'
+            })
+        
+        cpu_percent = (summary.get('cpu') or {}).get('percent') or 0
+        if cpu_percent >= 90:
+            alerts.append({'level': 'danger', 'message': f'CPU使用率达到 {cpu_percent}%（>=90%）'})
+        elif cpu_percent >= 75:
+            alerts.append({'level': 'warning', 'message': f'CPU使用率较高：{cpu_percent}%（>=75%）'})
+        
+        mem_percent = (summary.get('memory') or {}).get('percent') or 0
+        if mem_percent >= 90:
+            alerts.append({'level': 'danger', 'message': f'内存使用率达到 {mem_percent}%（>=90%）'})
+        elif mem_percent >= 80:
+            alerts.append({'level': 'warning', 'message': f'内存使用率较高：{mem_percent}%（>=80%）'})
+        
+        disk_percent = (summary.get('storage') or {}).get('percent') or 0
+        if disk_percent >= 90:
+            alerts.append({'level': 'danger', 'message': f'存储使用率达到 {disk_percent}%（>=90%）'})
+        elif disk_percent >= 80:
+            alerts.append({'level': 'warning', 'message': f'存储使用率较高：{disk_percent}%（>=80%）'})
+        
+        loadavg = status_data.get('loadavg') or latest_metric.get('loadavg')
+        cores = (summary.get('cpu') or {}).get('cores') or 1
+        try:
+            if isinstance(loadavg, (list, tuple)) and loadavg:
+                load_value = float(loadavg[0])
+            else:
+                load_value = float(loadavg)
+            if load_value > cores * 1.5:
+                alerts.append({
+                    'level': 'warning',
+                    'message': f'负载值 {load_value:.2f} 高于CPU核心数 {cores}'
+                })
+        except (TypeError, ValueError):
+            pass
+        
+        return alerts
 
 
 class VirtualMachineViewSet(AuditOwnerPopulateMixin, ActionSerializerMixin, viewsets.ModelViewSet):
