@@ -2,19 +2,14 @@
 ARG FRONTEND_DIR=front-end
 
 # 阶段1: 构建阶段
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-# 复制 package 文件
-COPY ${FRONTEND_DIR}/package*.json ./
-
-# 安装依赖
-RUN npm ci --only=production=false
-
 # 复制源代码
-COPY ${FRONTEND_DIR}/ ./
+COPY front-end/ ./
 
+RUN npm config set registry https://registry.npmmirror.com
 # 构建生产版本
 RUN npm run build
 
