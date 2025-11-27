@@ -29,7 +29,7 @@
 <script setup>
 import { ref, watch, nextTick, onBeforeUnmount } from 'vue'
 import { createVMConsoleSession } from '@/api/pve'
-import RFB from '@novnc/novnc/lib/rfb.js'
+import RFB from '@novnc/novnc/core/rfb'
 
 const props = defineProps({
   vm: {
