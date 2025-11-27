@@ -3,7 +3,7 @@
     <div class="side-left">
       <div style="height: 38px"><img src="@/assets/icon.svg" /></div>
 
-      <h5 class="arco-typography brand">Django Vue AdminX</h5>
+      <h5 class="arco-typography brand">pve-ui</h5>
     </div>
 
     <ul class="side-right">

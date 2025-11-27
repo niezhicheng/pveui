@@ -19,7 +19,7 @@
         <div class="content-inner">
           <div class="logo">
             <img alt="logo" src="/icon.svg" />
-            <div class="logo-text">Django Vue AdminX</div>
+            <div class="logo-text">pve-ui</div>
           </div>
 
           <div class="login-form-wrapper">
@@ -50,7 +50,7 @@
           </div>
 
           <div class="footer">
-            <div class="copyright">© {{ new Date().getFullYear() }} Django Vue AdminX</div>
+            <div class="copyright">© {{ new Date().getFullYear() }} pve-ui</div>
           </div>
         </div>
       </div>
