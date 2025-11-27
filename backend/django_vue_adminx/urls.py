@@ -29,12 +29,9 @@ from django.views.static import serve
 urlpatterns = [
     # path('admin/', admin.site.urls),
     path('api/rbac/', include('apps.rbac.urls')),
-    path('api/curd/', include('apps.curdexample.urls')),
     path('api/common/', include('apps.common.urls')),
-    path('api/codegen/', include('apps.codegen.urls')),
     path('api/tasks/', include('apps.tasks.urls')),
     path('api/audit/', include('apps.audit.urls')),
-    path('api/shop/', include('apps.shop.urls')),
     path('api/chat/', include('apps.chat.urls')),
     path('api/system/', include('apps.system.urls')),
     path('api/pve/', include('apps.pve.urls')),

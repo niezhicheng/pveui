@@ -80,10 +80,6 @@ class Command(BaseCommand):
         menu_login_log = self._get_or_create_menu('登录日志', 'login-log', 'system/login-log/index', 'icon-user', menu_monitor_root, 3)
         menu_tasks = self._get_or_create_menu('任务管理', 'task', 'system/task/index', 'icon-schedule', menu_monitor_root, 4)
 
-        # 系统工具（代码生成器保留在系统管理下）
-        menu_codegen = self._get_or_create_menu('代码生成器', 'codegen', 'system/codegen/index', 'icon-code', menu_system, 7)
-        menu_example = self._get_or_create_menu('示例管理', 'example', 'curdexample/index', 'icon-apps', menu_system, 8)
-        
         # PVE管理
         menu_pve_server = self._get_or_create_menu('PVE服务器管理', 'pve-server', 'pve/server/index', 'icon-computer', menu_pve, 1)
         menu_pve_vm = self._get_or_create_menu('虚拟机管理', 'pve-vm', 'pve/vm/index', 'icon-desktop', menu_pve, 2)
@@ -155,13 +151,6 @@ class Command(BaseCommand):
         perms.append(self._get_or_create_permission('系统设置批量更新', 'system_setting:bulk_update', 'POST', '/api/system/settings/bulk_update/', menu_system_setting))
         perms.append(self._get_or_create_permission('系统设置按键获取', 'system_setting:get_by_key', 'GET', '/api/system/settings/get_by_key/', menu_system_setting))
 
-        # 代码生成（归属系统管理）
-        perms.append(self._get_or_create_permission('代码生成', 'codegen:generate', 'POST', '/api/codegen/generate/', menu_codegen))
-        # 示例管理权限（curdexample，归属系统管理）
-        perms.append(self._get_or_create_permission('示例列表', 'example:list', 'GET', '/api/curd/example/', menu_example))
-        perms.append(self._get_or_create_permission('示例创建', 'example:create', 'POST', '/api/curd/example/', menu_example))
-        perms.append(self._get_or_create_permission('示例更新', 'example:update', 'PUT', r'/api/curd/example/\\d+/', menu_example))
-        perms.append(self._get_or_create_permission('示例删除', 'example:delete', 'DELETE', r'/api/curd/example/\\d+/', menu_example))
 
         # PVE服务器管理权限
         perms.append(self._get_or_create_permission('PVE服务器列表', 'pve_server:list', 'GET', '/api/pve/servers/', menu_pve_server))
@@ -215,7 +204,7 @@ class Command(BaseCommand):
             # 顶级
             menu_dashboard, menu_system, menu_monitor_root, menu_pve,
             # 系统管理
-            menu_user, menu_role, menu_menu, menu_permission, menu_org, menu_system_setting, menu_codegen, menu_example,
+            menu_user, menu_role, menu_menu, menu_permission, menu_org, menu_system_setting,
             # 系统监控
             menu_monitor, menu_operation_log, menu_login_log, menu_tasks,
             # PVE管理

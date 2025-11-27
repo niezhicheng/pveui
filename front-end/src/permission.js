@@ -7,14 +7,12 @@ let menuLoaded = false
 
 router.beforeEach(async (to, from, next) => {
   console.log('[auth] beforeEach enter:', { to: to.fullPath, from: from.fullPath, menuLoaded })
-  // 登录页和发卡网直接放行（不需要登录）
-  if (to.path === '/login' || to.path === '/shop') {
-    if (to.path === '/login') {
+  // 登录页直接放行（不需要登录）
+  if (to.path === '/login') {
       menuLoaded = false // 退出登录时重置
-    }
-    console.log('[auth] public page passthrough:', to.path)
-    next()
-    return
+      console.log('[auth] public page passthrough:', to.path)
+      next()
+      return
   }
 
   // 检查是否有用户信息

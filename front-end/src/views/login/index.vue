@@ -89,8 +89,8 @@ const carouselItems = [
     image: 'https://vuejs-core.cn/vue-admin-arco/static/png/login-banner-Cqtv5-d6.png',
   },
   {
-    slogan: 'RBAC 权限 · 代码生成器',
-    subSlogan: '权限到按钮级，CRUD 一键生成',
+    slogan: 'PVE 集群 · 统一管控',
+    subSlogan: '节点/虚拟机/存储/任务一站式管理',
     image: 'https://vuejs-core.cn/vue-admin-arco/static/png/login-banner-Cqtv5-d6.png',
   },
 ]

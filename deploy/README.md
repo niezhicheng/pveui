@@ -42,10 +42,10 @@ docker-compose -f deploy/docker-compose.yml up -d
 
 ```bash
 # 构建后端镜像
-docker build -f deploy/Dockerfile.backend -t django-vue-adminx-backend:latest backend/
+docker build -f deploy/Dockerfile.backend -t pve-ui-backend:latest backend/
 
 # 构建前端镜像
-docker build -f deploy/Dockerfile.frontend -t django-vue-adminx-frontend:latest .
+docker build -f deploy/Dockerfile.frontend -t pve-ui-frontend:latest .
 ```
 
 ## Kubernetes 部署
@@ -61,7 +61,7 @@ kubectl apply -f configmap.yaml
 kubectl apply -f secret.yaml
 kubectl apply -f media-pvc.yaml
 kubectl apply -f mysql.yaml
-kubectl wait --for=condition=ready pod -l app=mysql -n django-vue-adminx --timeout=300s
+kubectl wait --for=condition=ready pod -l app=mysql -n pve-ui --timeout=300s
 kubectl apply -f backend.yaml
 kubectl apply -f frontend.yaml
 kubectl apply -f ingress.yaml

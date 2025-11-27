@@ -65,7 +65,7 @@ VITE_HOST=http://127.0.0.1:8000
 
 ### 启动后端
 ```bash
-cd /Users/niezhicheng/PycharmProjects/django-vue-adminx
+cd /Users/niezhicheng/PycharmProjects/pve-ui
 python manage.py runserver
 ```
 

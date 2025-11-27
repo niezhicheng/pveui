@@ -31,7 +31,7 @@ kubectl apply -f mysql.yaml
 
 等待 MySQL Pod 就绪：
 ```bash
-kubectl wait --for=condition=ready pod -l app=mysql -n django-vue-adminx --timeout=300s
+kubectl wait --for=condition=ready pod -l app=mysql -n pve-ui --timeout=300s
 ```
 
 ### 4. 部署后端
@@ -70,7 +70,7 @@ kubectl apply -f configmap.yaml
 kubectl apply -f secret.yaml
 kubectl apply -f media-pvc.yaml
 kubectl apply -f mysql.yaml
-kubectl wait --for=condition=ready pod -l app=mysql -n django-vue-adminx --timeout=300s
+kubectl wait --for=condition=ready pod -l app=mysql -n pve-ui --timeout=300s
 kubectl apply -f backend.yaml
 kubectl apply -f frontend.yaml
 kubectl apply -f ingress.yaml
@@ -82,21 +82,21 @@ kubectl apply -f ingress.yaml
 
 ```bash
 # 后端镜像
-docker build -f deploy/Dockerfile.backend -t django-vue-adminx-backend:latest backend/
+docker build -f deploy/Dockerfile.backend -t pve-ui-backend:latest backend/
 
 # 前端镜像
-docker build -f deploy/Dockerfile.frontend -t django-vue-adminx-frontend:latest .
+docker build -f deploy/Dockerfile.frontend -t pve-ui-frontend:latest .
 ```
 
 ### 推送到镜像仓库
 
 ```bash
 # 替换为你的镜像仓库地址
-docker tag django-vue-adminx-backend:latest your-registry/django-vue-adminx-backend:latest
-docker tag django-vue-adminx-frontend:latest your-registry/django-vue-adminx-frontend:latest
+docker tag pve-ui-backend:latest your-registry/pve-ui-backend:latest
+docker tag pve-ui-frontend:latest your-registry/pve-ui-frontend:latest
 
-docker push your-registry/django-vue-adminx-backend:latest
-docker push your-registry/django-vue-adminx-frontend:latest
+docker push your-registry/pve-ui-backend:latest
+docker push your-registry/pve-ui-frontend:latest
 ```
 
 ### 更新 YAML 文件中的镜像地址
@@ -107,23 +107,23 @@ docker push your-registry/django-vue-adminx-frontend:latest
 
 ```bash
 # 查看所有资源
-kubectl get all -n django-vue-adminx
+kubectl get all -n pve-ui
 
 # 查看 Pod 状态
-kubectl get pods -n django-vue-adminx
+kubectl get pods -n pve-ui
 
 # 查看服务
-kubectl get svc -n django-vue-adminx
+kubectl get svc -n pve-ui
 
 # 查看日志
-kubectl logs -f deployment/backend -n django-vue-adminx
-kubectl logs -f deployment/frontend -n django-vue-adminx
+kubectl logs -f deployment/backend -n pve-ui
+kubectl logs -f deployment/frontend -n pve-ui
 ```
 
 ## 删除部署
 
 ```bash
-kubectl delete namespace django-vue-adminx
+kubectl delete namespace pve-ui
 ```
 
 ## 配置说明
@@ -155,10 +155,10 @@ kubectl delete namespace django-vue-adminx
 
 ```bash
 # 扩展后端副本数
-kubectl scale deployment backend --replicas=3 -n django-vue-adminx
+kubectl scale deployment backend --replicas=3 -n pve-ui
 
 # 扩展前端副本数
-kubectl scale deployment frontend --replicas=3 -n django-vue-adminx
+kubectl scale deployment frontend --replicas=3 -n pve-ui
 ```
 
 ### 资源限制
@@ -181,22 +181,22 @@ resources:
 
 检查 Pod 状态和日志：
 ```bash
-kubectl describe pod <pod-name> -n django-vue-adminx
-kubectl logs <pod-name> -n django-vue-adminx
+kubectl describe pod <pod-name> -n pve-ui
+kubectl logs <pod-name> -n pve-ui
 ```
 
 ### 2. 数据库连接失败
 
 确保 MySQL Pod 已就绪：
 ```bash
-kubectl get pods -l app=mysql -n django-vue-adminx
+kubectl get pods -l app=mysql -n pve-ui
 ```
 
 ### 3. 无法访问服务
 
 检查 Service 和 Ingress：
 ```bash
-kubectl get svc -n django-vue-adminx
-kubectl get ingress -n django-vue-adminx
+kubectl get svc -n pve-ui
+kubectl get ingress -n pve-ui
 ```
 

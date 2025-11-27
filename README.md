@@ -1,6 +1,6 @@
-# Django Vue AdminX
+# pve-ui
 
-一个基于 Django REST Framework 和 Vue 3 的现代化后台管理系统，提供完整的 RBAC 权限控制、代码生成器(可ai辅助建表)、操作日志、任务调度等企业级功能。
+一个基于 Django REST Framework 和 Vue 3 的现代化后台管理系统（pve-ui），提供完整的 RBAC 权限控制、PVE 集群管理、操作日志、任务调度等企业级功能，聚焦 PVE 管理场景。
 
 ![Python Version](https://img.shields.io/badge/python-3.12+-blue.svg)
 ![Django Version](https://img.shields.io/badge/django-5.2.7-green.svg)
@@ -39,13 +39,6 @@
 - **任务管理**：任务的增删改查、立即执行
 - **Cron 表达式**：支持标准的 Cron 表达式配置
 - **任务状态**：任务启用/禁用、执行状态监控
-
-### 🔧 代码生成器
-- **一键生成**：根据模型定义自动生成前后端代码
-- **CRUD 完整**：自动生成模型的增删改查接口
-- **前端页面**：自动生成 Vue 页面，包含列表、表单、搜索
-- **数据权限**：可选启用增强型数据权限控制
-- **代码注释**：生成的代码包含完整注释
 
 ### 📦 其他功能
 - **文件上传**：支持文件上传和管理
@@ -114,7 +107,7 @@
 ## 📁 项目结构
 
 ```
-django-vue-adminx/
+pve-ui/
 ├── backend/                       # 后端项目目录
 │   ├── apps/                      # Django 应用目录
 │   │   ├── audit/                 # 操作日志应用
@@ -185,7 +178,7 @@ django-vue-adminx/
 1. **克隆项目**
 ```bash
 git clone <repository-url>
-cd django-vue-adminx
+cd pve-ui
 ```
 
 2. **进入后端目录**

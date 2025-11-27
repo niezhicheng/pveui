@@ -31,11 +31,3 @@
 3. 默认账号
    - 用户名：admin
    - 密码：admin123
-
-4. 代码生成器使用
-   - 登录前端 → 系统管理 → 代码生成器
-   - 配置 app_label、model_name、字段等，点击“生成代码”
-   - 生成后请在 backend 目录执行数据库迁移：
-     python manage.py makemigrations
-     python manage.py migrate
-   - 刷新前端即可看到新菜单/页面
