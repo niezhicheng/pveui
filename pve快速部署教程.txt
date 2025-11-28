@@ -27,3 +27,4 @@ systemctl start docker
 新建一个docker-compose.yaml
 docker-compose up -d
 启动访问pve 的8012 端口即可
+默认账号admin 密码admin123
