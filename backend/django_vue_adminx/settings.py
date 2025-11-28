@@ -170,13 +170,13 @@ CORS_ALLOW_CREDENTIALS = True  # 允许携带 Cookie（Session 认证需要）
 
 # CSRF 配置：允许来自前端的 CSRF 请求
 # 注意：CSRF_TRUSTED_ORIGINS 需要包含协议和端口号
-CSRF_TRUSTED_ORIGINS = [
-    'http://localhost:5174',
-    'http://127.0.0.1:5174',
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-]
-
+# CSRF_TRUSTED_ORIGINS = [
+#     'http://localhost:5174',
+#     'http://127.0.0.1:5174',
+#     'http://localhost:5173',
+#     'http://127.0.0.1:5173',
+# ]
+CSRF_TRUSTED_ORIGINS = ['*']
 # CSRF Cookie 设置（跨域时需要）
 CSRF_COOKIE_SAMESITE = 'Lax'  # 开发环境使用 Lax（生产环境跨域时使用 None）
 CSRF_COOKIE_SECURE = False  # 开发环境使用 False（生产环境应使用 True）
