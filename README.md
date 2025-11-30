@@ -111,4 +111,7 @@ docker-compose down
 
 
 
-**⭐ 如果这个项目对你有帮助，请给个 Star！**
+**⭐ 如果这个项目对你有帮助，请给个 Star！如果您想赞助本项目扫下面的码**
+## 📸 赞赏码
+![微信](images/5d022d43e6fd2393b7ef72bd0e3dc793.jpg)
+![支付宝](images/a0699a1b9ae07770f8761df4a6634f11.jpg)
