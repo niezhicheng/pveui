@@ -2,7 +2,7 @@
 
 from rest_framework import serializers
 from apps.common.serializers import BaseModelSerializer
-from .models import PVEServer, VirtualMachine, NetworkTopology
+from .models import PVEServer, VirtualMachine, NetworkTopology, LXCContainer
 
 
 class PVEServerListSerializer(BaseModelSerializer):
@@ -250,6 +250,43 @@ class NetworkTopologySaveSerializer(BaseModelSerializer):
         if not isinstance(value, (dict, list)):
             raise serializers.ValidationError('拓扑图数据必须为JSON对象或数组')
         return value
+
+
+class LXCContainerListSerializer(BaseModelSerializer):
+    """LXC容器列表序列化器。"""
+    
+    server_name = serializers.CharField(source='server.name', read_only=True)
+    
+    class Meta:
+        model = LXCContainer
+        fields = [
+            'id', 'server', 'server_name', 'vmid', 'name', 'node',
+            'status', 'cpu_cores', 'memory_mb', 'disk_gb',
+            'ip_address', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class LXCContainerDetailSerializer(BaseModelSerializer):
+    """LXC容器详情序列化器。"""
+    
+    server_name = serializers.CharField(source='server.name', read_only=True)
+    server_host = serializers.CharField(source='server.host', read_only=True)
+    server_port = serializers.IntegerField(source='server.port', read_only=True)
+    
+    class Meta:
+        model = LXCContainer
+        fields = '__all__'
+        read_only_fields = ['created_at', 'updated_at', 'created_by', 'updated_by']
+
+
+class LXCContainerActionSerializer(serializers.Serializer):
+    """LXC容器动作序列化器。"""
+    
+    action = serializers.ChoiceField(
+        choices=['start', 'stop', 'shutdown', 'reboot'],
+        help_text='操作类型：start-启动, stop-停止, shutdown-关闭, reboot-重启'
+    )
 
     def validate_metadata(self, value):
         if value is None:

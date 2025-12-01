@@ -23,7 +23,7 @@ from django.contrib.auth.decorators import login_required
 from django.utils._os import safe_join
 from django.urls import reverse
 
-from .models import PVEServer, VirtualMachine, NetworkTopology
+from .models import PVEServer, VirtualMachine, NetworkTopology, LXCContainer
 from .serializers import (
     PVEServerListSerializer,
     PVEServerDetailSerializer,
@@ -43,6 +43,9 @@ from .serializers import (
     NetworkTopologyListSerializer,
     NetworkTopologyDetailSerializer,
     NetworkTopologySaveSerializer,
+    LXCContainerListSerializer,
+    LXCContainerDetailSerializer,
+    LXCContainerActionSerializer,
 )
 from .pve_client import PVEAPIClient
 from .consumers import SESSION_CACHE_PREFIX
@@ -1527,6 +1530,244 @@ class VirtualMachineViewSet(AuditOwnerPopulateMixin, ActionSerializerMixin, view
             return Response({
                 'detail': f'同步状态失败: {str(e)}'
             }, status=status.HTTP_400_BAD_REQUEST)
+
+
+class LXCContainerViewSet(AuditOwnerPopulateMixin, ActionSerializerMixin, viewsets.ModelViewSet):
+    """LXC容器管理视图集。"""
+    
+    queryset = LXCContainer.objects.all().order_by('-created_at')
+    
+    serializer_class = LXCContainerDetailSerializer
+    list_serializer_class = LXCContainerListSerializer
+    retrieve_serializer_class = LXCContainerDetailSerializer
+    
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['server', 'status', 'node']
+    search_fields = ['name', 'vmid', 'ip_address']
+    ordering_fields = ['id', 'vmid', 'name', 'created_at']
+    
+    @action(detail=True, methods=['post'])
+    def container_action(self, request, pk=None):
+        """容器操作（启动、停止、关闭、重启）。"""
+        container = self.get_object()
+        serializer = LXCContainerActionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        action_type = serializer.validated_data['action']
+        
+        try:
+            server = container.server
+            client = PVEAPIClient(
+                host=server.host,
+                port=server.port,
+                token_id=server.token_id,
+                token_secret=server.token_secret,
+                verify_ssl=server.verify_ssl
+            )
+            
+            if action_type == 'start':
+                result = client.start_container(container.node, container.vmid)
+                container.status = 'running'
+            elif action_type == 'stop':
+                result = client.stop_container(container.node, container.vmid)
+                container.status = 'stopped'
+            elif action_type == 'shutdown':
+                result = client.shutdown_container(container.node, container.vmid)
+                container.status = 'stopped'
+            elif action_type == 'reboot':
+                result = client.reboot_container(container.node, container.vmid)
+                container.status = 'running'
+            else:
+                return Response({'detail': f'不支持的操作: {action_type}'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            container.save(update_fields=['status'])
+            return Response({
+                'success': True,
+                'message': f'容器操作 {action_type} 已提交',
+                'upid': result
+            })
+        except Exception as exc:
+            logger.exception('执行容器操作失败')
+            return Response({
+                'detail': f'执行容器操作失败: {str(exc)}'
+            }, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=True, methods=['get'])
+    def sync_status(self, request, pk=None):
+        """同步容器状态。"""
+        container = self.get_object()
+        try:
+            server = container.server
+            client = PVEAPIClient(
+                host=server.host,
+                port=server.port,
+                token_id=server.token_id,
+                token_secret=server.token_secret,
+                verify_ssl=server.verify_ssl
+            )
+            status_info = client.get_container_status(container.node, container.vmid)
+            config = client.get_container_config(container.node, container.vmid)
+            
+            qstatus = status_info.get('status', 'unknown')
+            if qstatus in dict(LXCContainer.STATUS_CHOICES):
+                container.status = qstatus
+            else:
+                container.status = 'unknown'
+            
+            container.pve_config = config
+            if 'cores' in config:
+                container.cpu_cores = config.get('cores') or container.cpu_cores
+            if 'memory' in config:
+                container.memory_mb = config.get('memory') or container.memory_mb
+            container.save()
+            
+            serializer = LXCContainerDetailSerializer(container)
+            return Response(serializer.data)
+        except Exception as exc:
+            logger.exception('同步容器状态失败')
+            return Response({
+                'detail': f'同步容器状态失败: {str(exc)}'
+            }, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=False, methods=['post'], url_path='sync_all')
+    def sync_all(self, request):
+        """同步PVE中的LXC容器。"""
+        server_id = request.data.get('server_id')
+        servers_qs = PVEServer.objects.filter(is_active=True)
+        if server_id:
+            servers_qs = servers_qs.filter(id=server_id)
+            if not servers_qs.exists():
+                return Response(
+                    {'detail': '指定的PVE服务器不存在或已禁用'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+        
+        summary = {
+            'server_count': servers_qs.count(),
+            'synced': 0,
+            'created': 0,
+            'updated': 0,
+            'errors': []
+        }
+        
+        def _extract_disk_gb(config, info):
+            rootfs = config.get('rootfs') or info.get('rootfs') or ''
+            if isinstance(rootfs, str) and 'size=' in rootfs:
+                size_part = rootfs.split('size=', 1)[1].split(',', 1)[0].strip().upper()
+                if size_part.endswith('G'):
+                    try:
+                        return int(size_part[:-1])
+                    except ValueError:
+                        pass
+                if size_part.endswith('M'):
+                    try:
+                        return max(1, int(size_part[:-1]) // 1024)
+                    except ValueError:
+                        pass
+            maxdisk = info.get('maxdisk')
+            if isinstance(maxdisk, (int, float)) and maxdisk > 0:
+                return max(1, int(maxdisk // (1024 * 1024 * 1024)))
+            return 10
+        
+        def _extract_ip(config):
+            ip_fields = [config.get('ipconfig0'), config.get('net0')]
+            for field in ip_fields:
+                if isinstance(field, str) and 'ip=' in field:
+                    try:
+                        ip_part = field.split('ip=', 1)[1].split(',', 1)[0]
+                        return ip_part.split('/')[0]
+                    except Exception:
+                        continue
+            return ''
+        
+        for server in servers_qs:
+            try:
+                client = PVEAPIClient(
+                    host=server.host,
+                    port=server.port,
+                    token_id=server.token_id,
+                    token_secret=server.token_secret,
+                    verify_ssl=server.verify_ssl
+                )
+                nodes = client.get_nodes()
+                nodes = nodes if isinstance(nodes, list) else [nodes] if nodes else []
+            except Exception as exc:
+                summary['errors'].append(f'{server.name}: {exc}')
+                continue
+            
+            for node_info in nodes:
+                node_name = node_info.get('node') or node_info.get('name')
+                if not node_name:
+                    continue
+                try:
+                    container_list = client.get_lxc_containers(node_name) or []
+                except Exception as exc:
+                    summary['errors'].append(f'{server.name}/{node_name}: {exc}')
+                    continue
+                
+                for container_info in container_list:
+                    vmid = container_info.get('vmid')
+                    try:
+                        vmid = int(vmid)
+                    except (TypeError, ValueError):
+                        continue
+                    
+                    try:
+                        config = client.get_container_config(node_name, vmid)
+                    except Exception:
+                        config = {}
+                    
+                    cpu_cores = (
+                        config.get('cores')
+                        or config.get('cpus')
+                        or container_info.get('cores')
+                        or container_info.get('cpus')
+                        or 1
+                    )
+                    try:
+                        cpu_cores = int(cpu_cores)
+                    except (TypeError, ValueError):
+                        cpu_cores = 1
+                    
+                    memory_mb = config.get('memory')
+                    if not memory_mb:
+                        maxmem = container_info.get('maxmem')
+                        if isinstance(maxmem, (int, float)):
+                            memory_mb = max(1, int(maxmem // (1024 * 1024)))
+                        else:
+                            memory_mb = 512
+                    
+                    disk_gb = _extract_disk_gb(config, container_info)
+                    ip_address = _extract_ip(config)
+                    description = config.get('description') or config.get('notes', '')
+                    status_value = container_info.get('status', 'unknown')
+                    if status_value not in dict(LXCContainer.STATUS_CHOICES):
+                        status_value = 'unknown'
+                    
+                    defaults = {
+                        'name': container_info.get('name') or config.get('hostname') or f'ct-{vmid}',
+                        'node': node_name,
+                        'status': status_value,
+                        'cpu_cores': cpu_cores,
+                        'memory_mb': memory_mb,
+                        'disk_gb': disk_gb,
+                        'ip_address': ip_address,
+                        'description': description or '',
+                        'pve_config': config or container_info,
+                    }
+                    
+                    with transaction.atomic():
+                        obj, created = LXCContainer.objects.update_or_create(
+                            server=server,
+                            vmid=vmid,
+                            defaults=defaults
+                        )
+                        summary['synced'] += 1
+                        if created:
+                            summary['created'] += 1
+                        else:
+                            summary['updated'] += 1
+        
+        return Response(summary)
 
 
 class NetworkTopologyViewSet(AuditOwnerPopulateMixin, ActionSerializerMixin, viewsets.ModelViewSet):

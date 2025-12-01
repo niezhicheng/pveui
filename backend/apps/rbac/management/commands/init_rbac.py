@@ -89,6 +89,7 @@ class Command(BaseCommand):
         menu_pve_templates = self._get_or_create_menu('模板管理', 'pve-templates', 'pve/templates/index', 'icon-file', menu_pve, 6)
         menu_pve_network = self._get_or_create_menu('网络管理', 'pve-network', 'pve/network/index', 'icon-link', menu_pve, 7)
         menu_pve_topology = self._get_or_create_menu('网络拓扑', 'pve-topology', 'pve/topology/index', 'icon-share-alt', menu_pve, 8)
+        menu_pve_lxc = self._get_or_create_menu('LXC容器管理', 'pve-lxc', 'pve/lxc/index', 'icon-apps', menu_pve, 9)
 
         self.stdout.write(self.style.SUCCESS('  ✓ 创建菜单: 系统管理 / 系统监控 / PVE管理 分组完成'))
 
@@ -191,6 +192,17 @@ class Command(BaseCommand):
         perms.append(self._get_or_create_permission('网络拓扑部分更新', 'pve_topology:partial_update', 'PATCH', r'/api/pve/network-topologies/\\d+/', menu_pve_topology))
         perms.append(self._get_or_create_permission('网络拓扑删除', 'pve_topology:delete', 'DELETE', r'/api/pve/network-topologies/\\d+/', menu_pve_topology))
         
+        # LXC 容器管理权限
+        perms.append(self._get_or_create_permission('LXC容器列表', 'pve_lxc:list', 'GET', '/api/pve/lxc-containers/', menu_pve_lxc))
+        perms.append(self._get_or_create_permission('LXC容器创建', 'pve_lxc:create', 'POST', '/api/pve/lxc-containers/', menu_pve_lxc))
+        perms.append(self._get_or_create_permission('LXC容器查看', 'pve_lxc:retrieve', 'GET', r'/api/pve/lxc-containers/\\d+/', menu_pve_lxc))
+        perms.append(self._get_or_create_permission('LXC容器更新', 'pve_lxc:update', 'PUT', r'/api/pve/lxc-containers/\\d+/', menu_pve_lxc))
+        perms.append(self._get_or_create_permission('LXC容器部分更新', 'pve_lxc:partial_update', 'PATCH', r'/api/pve/lxc-containers/\\d+/', menu_pve_lxc))
+        perms.append(self._get_or_create_permission('LXC容器删除', 'pve_lxc:delete', 'DELETE', r'/api/pve/lxc-containers/\\d+/', menu_pve_lxc))
+        perms.append(self._get_or_create_permission('LXC容器操作', 'pve_lxc:action', 'POST', r'/api/pve/lxc-containers/\\d+/container_action/', menu_pve_lxc))
+        perms.append(self._get_or_create_permission('LXC容器同步状态', 'pve_lxc:sync_status', 'GET', r'/api/pve/lxc-containers/\\d+/sync_status/', menu_pve_lxc))
+        perms.append(self._get_or_create_permission('LXC容器全量同步', 'pve_lxc:sync_all', 'POST', '/api/pve/lxc-containers/sync_all/', menu_pve_lxc))
+        
         # 虚拟机管理权限
         perms.append(self._get_or_create_permission('虚拟机列表', 'pve_vm:list', 'GET', '/api/pve/virtual-machines/', menu_pve_vm))
         perms.append(self._get_or_create_permission('虚拟机创建', 'pve_vm:create_vm', 'POST', '/api/pve/virtual-machines/create_vm/', menu_pve_vm))
@@ -216,7 +228,7 @@ class Command(BaseCommand):
             # 系统监控
             menu_monitor, menu_operation_log, menu_login_log, menu_tasks,
             # PVE管理
-            menu_pve_server, menu_pve_vm, menu_pve_storage, menu_pve_node_monitor, menu_pve_tasks, menu_pve_templates, menu_pve_network, menu_pve_topology,
+            menu_pve_server, menu_pve_vm, menu_pve_storage, menu_pve_node_monitor, menu_pve_tasks, menu_pve_templates, menu_pve_network, menu_pve_topology, menu_pve_lxc,
         ])
         role_admin.custom_data_organizations.set([org_root, org_admin])
         

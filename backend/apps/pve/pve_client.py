@@ -166,13 +166,26 @@ class PVEAPIClient:
         result = self._request('GET', f'/nodes/{node}/qemu')
         return result if isinstance(result, list) else [result]
     
+    def get_lxc_containers(self, node: str) -> List[Dict]:
+        """获取节点上的所有LXC容器。"""
+        result = self._request('GET', f'/nodes/{node}/lxc')
+        return result if isinstance(result, list) else [result] if result else []
+    
     def get_vm_status(self, node: str, vmid: int) -> Dict:
         """获取虚拟机状态。"""
         return self._request('GET', f'/nodes/{node}/qemu/{vmid}/status/current')
     
+    def get_container_status(self, node: str, vmid: int) -> Dict:
+        """获取LXC容器状态。"""
+        return self._request('GET', f'/nodes/{node}/lxc/{vmid}/status/current')
+    
     def get_vm_config(self, node: str, vmid: int) -> Dict:
         """获取虚拟机配置。"""
         return self._request('GET', f'/nodes/{node}/qemu/{vmid}/config')
+    
+    def get_container_config(self, node: str, vmid: int) -> Dict:
+        """获取LXC容器配置。"""
+        return self._request('GET', f'/nodes/{node}/lxc/{vmid}/config')
     
     def create_vnc_proxy(self, node: str, vmid: int, websocket: bool = True, generate_password: bool = True) -> Dict:
         """
@@ -197,6 +210,12 @@ class PVEAPIClient:
             raise ValueError("params 不能为空")
         return self._request('POST', f'/nodes/{node}/qemu/{vmid}/config', params=params)
     
+    def update_container_config(self, node: str, vmid: int, params: Dict) -> Dict:
+        """更新LXC容器配置。"""
+        if not params:
+            raise ValueError("params 不能为空")
+        return self._request('POST', f'/nodes/{node}/lxc/{vmid}/config', params=params)
+    
     def create_vm(self, node: str, vmid: int, config: Dict) -> Dict:
         """
         创建虚拟机。
@@ -212,6 +231,19 @@ class PVEAPIClient:
         # PVE API创建虚拟机使用URL参数（表单格式）
         # config已经包含了所有参数，包括vmid
         result = self._request('POST', f'/nodes/{node}/qemu', params=config)
+        return result
+    
+    def create_container(self, node: str, params: Dict) -> Dict:
+        """
+        创建LXC容器。
+        
+        Args:
+            node: 节点名称
+            params: 容器配置参数（包含vmid、hostname、rootfs等）
+        """
+        if not params:
+            raise ValueError("params 不能为空")
+        result = self._request('POST', f'/nodes/{node}/lxc', params=params)
         return result
     
     def clone_vm(
@@ -269,9 +301,19 @@ class PVEAPIClient:
         result = self._request('POST', f'/nodes/{node}/qemu/{vmid}/status/start')
         return result if isinstance(result, dict) else {}
     
+    def start_container(self, node: str, vmid: int) -> Dict:
+        """启动LXC容器。"""
+        result = self._request('POST', f'/nodes/{node}/lxc/{vmid}/status/start')
+        return result if isinstance(result, dict) else {}
+    
     def stop_vm(self, node: str, vmid: int) -> Dict:
         """停止虚拟机。"""
         result = self._request('POST', f'/nodes/{node}/qemu/{vmid}/status/stop')
+        return result if isinstance(result, dict) else {}
+    
+    def stop_container(self, node: str, vmid: int) -> Dict:
+        """停止LXC容器。"""
+        result = self._request('POST', f'/nodes/{node}/lxc/{vmid}/status/stop')
         return result if isinstance(result, dict) else {}
     
     def shutdown_vm(self, node: str, vmid: int) -> Dict:
@@ -279,9 +321,19 @@ class PVEAPIClient:
         result = self._request('POST', f'/nodes/{node}/qemu/{vmid}/status/shutdown')
         return result if isinstance(result, dict) else {}
     
+    def shutdown_container(self, node: str, vmid: int) -> Dict:
+        """关闭LXC容器。"""
+        result = self._request('POST', f'/nodes/{node}/lxc/{vmid}/status/shutdown')
+        return result if isinstance(result, dict) else {}
+    
     def reboot_vm(self, node: str, vmid: int) -> Dict:
         """重启虚拟机。"""
         result = self._request('POST', f'/nodes/{node}/qemu/{vmid}/status/reboot')
+        return result if isinstance(result, dict) else {}
+    
+    def reboot_container(self, node: str, vmid: int) -> Dict:
+        """重启LXC容器。"""
+        result = self._request('POST', f'/nodes/{node}/lxc/{vmid}/status/reboot')
         return result if isinstance(result, dict) else {}
     
     def delete_vm(self, node: str, vmid: int) -> Dict:
@@ -289,6 +341,10 @@ class PVEAPIClient:
         result = self._request('DELETE', f'/nodes/{node}/qemu/{vmid}')
         return result if isinstance(result, dict) else {}
     
+    def delete_container(self, node: str, vmid: int) -> Dict:
+        """删除LXC容器。"""
+        result = self._request('DELETE', f'/nodes/{node}/lxc/{vmid}')
+        return result if isinstance(result, dict) else {}
     def get_storage(self, node: str) -> List[Dict]:
         """获取存储列表。"""
         result = self._request('GET', f'/nodes/{node}/storage')

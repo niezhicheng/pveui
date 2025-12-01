@@ -71,6 +71,49 @@ class VirtualMachine(BaseAuditModel):
         return f"{self.name} (VMID: {self.vmid})"
 
 
+class LXCContainer(BaseAuditModel):
+    """LXC容器模型：存储容器信息。"""
+    
+    STATUS_CHOICES = [
+        ('running', '运行中'),
+        ('stopped', '已停止'),
+        ('paused', '已暂停'),
+        ('unknown', '未知'),
+    ]
+    
+    server = models.ForeignKey(
+        PVEServer,
+        on_delete=models.CASCADE,
+        related_name='lxc_containers',
+        verbose_name='PVE服务器',
+        help_text='所属的PVE服务器'
+    )
+    vmid = models.IntegerField(verbose_name='容器ID', help_text='PVE中的容器ID')
+    name = models.CharField(max_length=255, verbose_name='容器名称', help_text='容器名称')
+    node = models.CharField(max_length=100, verbose_name='节点', help_text='PVE节点名称')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='unknown', verbose_name='状态')
+    cpu_cores = models.IntegerField(default=1, verbose_name='CPU核心数')
+    memory_mb = models.IntegerField(default=512, verbose_name='内存(MB)')
+    disk_gb = models.IntegerField(default=10, verbose_name='磁盘(GB)')
+    ip_address = models.CharField(max_length=255, blank=True, default='', verbose_name='IP地址', help_text='容器IP地址')
+    description = models.TextField(blank=True, default='', verbose_name='描述', help_text='容器描述信息')
+    pve_config = models.JSONField(default=dict, verbose_name='PVE配置', help_text='PVE中的完整配置信息（JSON格式）')
+    
+    class Meta:
+        verbose_name = 'LXC容器'
+        verbose_name_plural = 'LXC容器'
+        unique_together = [['server', 'vmid']]
+        indexes = [
+            models.Index(fields=['server', 'vmid']),
+            models.Index(fields=['status']),
+            models.Index(fields=['node']),
+        ]
+        ordering = ['-created_at']
+    
+    def __str__(self) -> str:
+        return f"{self.name} (CTID: {self.vmid})"
+
+
 class NetworkTopology(BaseAuditModel):
     """网络拓扑模型：保存LogicFlow图数据及元信息。"""
 

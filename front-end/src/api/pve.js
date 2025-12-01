@@ -350,6 +350,54 @@ export function getVMTaskLog(id, data) {
 }
 
 /**
+ * LXC容器相关API
+ */
+export function getLXCContainers(params) {
+  return request({
+    url: '/api/pve/lxc-containers/',
+    method: 'get',
+    params
+  })
+}
+
+export function getLXCContainer(id) {
+  return request({
+    url: `/api/pve/lxc-containers/${id}/`,
+    method: 'get'
+  })
+}
+
+export function deleteLXCContainer(id) {
+  return request({
+    url: `/api/pve/lxc-containers/${id}/`,
+    method: 'delete'
+  })
+}
+
+export function lxcAction(id, action) {
+  return request({
+    url: `/api/pve/lxc-containers/${id}/container_action/`,
+    method: 'post',
+    data: { action }
+  })
+}
+
+export function syncLXCStatus(id) {
+  return request({
+    url: `/api/pve/lxc-containers/${id}/sync_status/`,
+    method: 'get'
+  })
+}
+
+export function syncAllLXCContainers(data) {
+  return request({
+    url: '/api/pve/lxc-containers/sync_all/',
+    method: 'post',
+    data
+  })
+}
+
+/**
  * 全局任务中心相关API
  */
 
