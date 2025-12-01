@@ -107,7 +107,9 @@ docker-compose down
 - [Arco Design](https://arco.design/)
 
 ---
+## Star History
 
+[![Star History Chart](https://api.star-history.com/svg?repos=niezhicheng/pveui&type=date&legend=top-left)](https://www.star-history.com/#niezhicheng/pveui&type=date&legend=top-left)
 
 
 **⭐ 如果这个项目对你有帮助，请给个 Star！如果您想赞助本项目扫下面的码**
