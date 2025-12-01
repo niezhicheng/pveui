@@ -104,7 +104,7 @@ class VirtualMachineCreateSerializer(serializers.Serializer):
     memory = serializers.IntegerField(default=512, help_text='内存(MB)', required=False)
     scsihw = serializers.CharField(default='virtio-scsi-single', help_text='SCSI硬件类型', required=False)
     numa = serializers.BooleanField(default=False, help_text='是否启用NUMA', required=False)
-    disk_size = serializers.CharField(default='10G', help_text='磁盘大小，如：10G', required=False)
+    disk_size = serializers.IntegerField(default=10, help_text='磁盘大小（GB）', required=False, min_value=1)
     disk_storage = serializers.CharField(help_text='存储名称', required=False)
     iso_storage = serializers.CharField(required=False, help_text='ISO存储名称（可选，如果不提供则使用disk_storage）')
     network_bridge = serializers.CharField(default='vmbr0', help_text='网络桥接', required=False)

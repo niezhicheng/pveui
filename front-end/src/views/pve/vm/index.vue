@@ -364,14 +364,15 @@
             </a-select>
           </a-form-item>
 
-          <a-form-item field="disk_size" label="磁盘大小">
-            <a-input
+          <a-form-item field="disk_size" label="磁盘大小 (GB)">
+            <a-input-number
               v-model="createFormData.disk_size"
-              placeholder="如：10G, 20G, 50G"
+              :min="1"
+              placeholder="请输入数字，例如：10"
             />
             <template #extra>
               <span style="color: var(--color-text-3); font-size: 12px;">
-                格式：数字+G（如：10G表示10GB）
+                直接填写数字，单位为GB（例如：10 表示 10GB）
               </span>
             </template>
           </a-form-item>
@@ -513,7 +514,7 @@ const createFormData = reactive({
   memory: 512,
   scsihw: 'virtio-scsi-single',
   numa: false,
-  disk_size: '10G',
+  disk_size: 10,
   disk_storage: '',
   iso_storage: '', // ISO存储（可选）
   network_bridge: 'vmbr0',
@@ -529,7 +530,7 @@ const createFormRules = {
   name: [{ required: true, message: '请输入虚拟机名称' }],
   cores: [{ required: true, message: '请输入CPU核心数' }],
   memory: [{ required: true, message: '请输入内存大小' }],
-  disk_size: [{ required: true, message: '请输入磁盘大小' }],
+  disk_size: [{ required: true, message: '请输入磁盘大小（GB）' }],
   disk_storage: [{ required: true, message: '请选择存储' }]
 }
 
@@ -553,7 +554,7 @@ const summaryData = computed(() => {
     { label: 'SCSI硬件类型', value: createFormData.scsihw || '-' },
     { label: 'NUMA', value: createFormData.numa ? '启用' : '禁用' },
     { label: '存储', value: createFormData.disk_storage || '-' },
-    { label: '磁盘大小', value: createFormData.disk_size || '-' },
+    { label: '磁盘大小', value: createFormData.disk_size ? `${createFormData.disk_size} GB` : '-' },
     { label: '网络桥接', value: createFormData.network_bridge || '-' },
     { label: '防火墙', value: createFormData.network_firewall ? '启用' : '禁用' }
   ]
@@ -677,7 +678,7 @@ const handleCreate = () => {
     memory: 512,
     scsihw: 'virtio-scsi-single',
     numa: false,
-    disk_size: '10G',
+    disk_size: 10,
     disk_storage: '',
     iso_storage: '',
     network_bridge: 'vmbr0',

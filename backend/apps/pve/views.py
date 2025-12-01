@@ -642,23 +642,16 @@ class VirtualMachineViewSet(AuditOwnerPopulateMixin, ActionSerializerMixin, view
             
             # 构建虚拟机配置
             vmid = data.get('vmid')
-            # 解析磁盘大小（默认10G，最小1G）
-            raw_disk_size = data.get('disk_size', '10G') or '10G'
-            disk_size_str = str(raw_disk_size).strip()
-            disk_size_gb = 10
+            # 解析磁盘大小（默认10GB，最小1GB）
+            raw_disk_size = data.get('disk_size', 10) or 10
             try:
-                normalized_disk_size = disk_size_str.upper()
-                if normalized_disk_size.endswith('G'):
-                    disk_size_gb = int(normalized_disk_size.replace('G', '') or 0)
-                elif normalized_disk_size.endswith('M'):
-                    disk_size_gb = int(normalized_disk_size.replace('M', '') or 0) // 1024
-                else:
-                    disk_size_gb = int(normalized_disk_size)
-            except (ValueError, AttributeError, TypeError):
-                logger.warning(f'无法解析磁盘大小 {disk_size_str}，使用默认值10GB')
+                disk_size_gb = int(raw_disk_size)
+            except (ValueError, TypeError):
+                logger.warning(f'无法解析磁盘大小 {raw_disk_size}，使用默认值10GB')
                 disk_size_gb = 10
             if disk_size_gb < 1:
                 disk_size_gb = 1
+            disk_size_str = f'{disk_size_gb}G'
             
             # 构建PVE API参数（使用URL参数，表单格式）
             # PVE API创建虚拟机使用URL参数，所有配置都作为URL参数传递
