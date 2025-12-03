@@ -11,7 +11,7 @@ services:
       - TWISTED_REACTOR=asyncio
     volumes:
       # 数据持久化卷
-      - db_data:/app/db.sqlite3           # SQLite 数据库目录
+      - db_data:/app           # SQLite 数据库目录
     command: >
       sh -c "python manage.py migrate --noinput &&
              python manage.py init_rbac --create-superuser 2>/dev/null || true &&
