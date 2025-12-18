@@ -93,6 +93,14 @@ docker-compose down
 - **前端**: http://localhost
 - **后端 API**: http://localhost:8000
 
+### 运维版本说明
+
+项目中的 `docker-compose-devops.yaml` 是**运维版本**，需要激活码才能使用。如需使用该版本，请联系作者获取激活码。
+
+**联系方式**：
+- 微信：rz1433
+- QQ：1433711899
+
 
 ## 📸 功能截图&交流群
 ![交流群](images/392478e38a9d7d78d8306116bad008af.jpg)
