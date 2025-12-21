@@ -65,7 +65,7 @@ docker compose up -d
 
 - 进入PVE Web界面，选择“Datacenter”->“权限 (Permissions)”->“API令牌 (API Tokens)”，点击“添加 (add)”。
 - 设置“用户 (User)”和“Token ID”
-![](images\guideline_docker\2.png)
+![](./images/guideline_docker/2.png)
 - 点击“增加 (Add)”后会生成“Token Secret”，请妥善保存。
 
 ### 授权
@@ -76,7 +76,7 @@ docker compose up -d
 - 点击“增加 (Add)”->“API Token 权限 (API Token Permission)”
 - 选择刚才创建的Token，设置路径为“/”，角色选择“管理员 (Administrator)”，点击“添加 (Add)”。
   
-![](images\guideline_docker\3.png)
+![](./images/guideline_docker/3.png)
 
 ## 8. 连接PVE服务器
 
@@ -84,7 +84,7 @@ docker compose up -d
 
 点击“PVE管理”->“PVE服务器管理”->“新增服务器”，填入PVE服务器的名称、服务器地址、端口（默认8006）、Token ID和Token Secret。
 
-![](images\guideline_docker\1.jpeg)
+![](./images/guideline_docker/1.jpeg)
 
 填写完成后，点击“确定”即可添加PVE服务器。
 
